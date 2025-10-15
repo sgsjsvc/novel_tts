@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace= "novel.tts.novel_tts.mapper.GeminiCharacterMapper">
+    <!-- 批量插入角色 -->
+    <insert id="importCharacters">
+        INSERT IGNORE INTO characters (modelname, version, created_at)
+        VALUES
+        <foreach collection="names" item="name" separator=",">
+            (#{name}, #{version}, #{createdAt})
+        </foreach>
+    </insert>
+
+
+    <select id="getCharacters" resultType="novel.tts.novel_tts.pojo.TtsCharacter">
+        SELECT * FROM characters
+        <where>
+            <if test="search != null" >
+                and modelname LIKE '%${search}%'
+            </if>
+            <if test="gender != null">
+                and gender = #{gender}
+            </if>
+            <if test="version != null">
+                and version = #{version}
+            </if>
+                 
+        </where>
+    </select>
+</mapper>

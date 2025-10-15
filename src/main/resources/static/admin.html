@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini AI管理面板</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --info: #3b82f6;
+            --light: #f8fafc;
+            --dark: #0f172a;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-400: #94a3b8;
+            --gray-500: #64748b;
+            --gray-600: #475569;
+            --gray-700: #334155;
+            --gray-800: #1e293b;
+            --gray-900: #0f172a;
+            --border-color: #e2e8f0;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+            --radius: 0.5rem;
+            --radius-sm: 0.375rem;
+            --radius-lg: 0.75rem;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #f1f5f9;
+            color: var(--gray-800);
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .tab {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            color: var(--gray-600);
+            font-weight: 500;
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .card-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-sm);
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-success {
+            background-color: var(--success);
+            color: white;
+        }
+
+        .btn-warning {
+            background-color: var(--warning);
+            color: white;
+        }
+
+        .btn-danger {
+            background-color: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: var(--danger-hover);
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .grid-cols-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .grid-cols-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .grid-cols-4 {
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .stats-card {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .stats-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: var(--primary);
+        }
+
+        .stats-label {
+            font-size: 0.875rem;
+            color: var(--gray-600);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--gray-700);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: center;
+            vertical-align: middle;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--gray-700);
+            background-color: var(--gray-100);
+        }
+
+        tbody tr:hover {
+            background-color: var(--gray-100);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background-color: #dcfce7;
+            color: var(--success);
+        }
+
+        .badge-danger {
+            background-color: #fee2e2;
+            color: var(--danger);
+        }
+
+        .badge-pink {
+            background-color: #fce7f3;
+            color: #db2777;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            width: 100%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-header h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            padding: 1.5rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--gray-500);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-top: 2px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: var(--radius-sm);
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background-color: #dcfce7;
+            color: var(--success);
+            border: 1px solid #bbf7d0;
+        }
+
+        .alert-danger {
+            background-color: #fee2e2;
+            color: var(--danger);
+            border: 1px solid #fecaca;
+        }
+
+        .logs-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .log-item {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .log-time {
+            color: var(--gray-500);
+            font-size: 0.875rem;
+            margin-right: 0.5rem;
+        }
+
+        .log-account {
+            font-weight: 500;
+            color: var(--primary);
+            margin-right: 0.5rem;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .grid-cols-2,
+            .grid-cols-4 {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+            .card {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-microchip mr-2"></i>Gemini AI 管理面板</h1>
+            <div id="connectionStatus">🟢 连接正常</div>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="dashboard">仪表盘</div>
+            <div class="tab" data-tab="accounts">账号管理</div>
+            <div class="tab" data-tab="characters">角色管理</div>
+            <div class="tab" data-tab="testing">API测试</div>
+            <div class="tab" data-tab="settings">系统设置</div>
+            <div class="tab" data-tab="logs">操作日志</div>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div class="tab-content" id="dashboard-tab">
+            <div class="grid grid-cols-4">
+                <div class="stats-card">
+                    <div class="stats-value" id="totalAccounts">-</div>
+                    <div class="stats-label">总账号数</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-value" id="activeAccounts">-</div>
+                    <div class="stats-label">活跃账号</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-value" id="todayTotal">-</div>
+                    <div class="stats-label">今日调用</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-value" id="systemConcurrency">-</div>
+                    <div class="stats-label">系统并发</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>账号并发状态</h2>
+                </div>
+                <div id="concurrencyStatus">
+                    <p>正在加载...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Accounts Tab -->
+        <div class="tab-content hidden" id="accounts-tab">
+            <div class="card">
+                <div class="card-header">
+                    <h2>账号管理</h2>
+                    <button class="btn btn-primary" id="addAccountBtn">
+                        <i class="fas fa-plus"></i> 添加账号
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table id="accountsTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>名称</th>
+                                <th>状态</th>
+                                <th>今日调用</th>
+                                <th>最大并发</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="6" class="text-center">正在加载...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Characters Tab -->
+        <div class="tab-content hidden" id="characters-tab">
+            <div class="card">
+                <div class="card-header">
+                    <h2>角色管理</h2>
+                    <div>
+                        <button class="btn btn-danger mr-2" id="batchDeleteBtn" style="display: none;">
+                            <i class="fas fa-trash"></i> 批量删除
+                        </button>
+                        <button class="btn btn-primary" id="importCharacterBtn">
+                            <i class="fas fa-download"></i> 导入角色
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-4 mb-4">
+                    <div class="stats-card">
+                        <div class="stats-value" id="totalCharacters">-</div>
+                        <div class="stats-label">角色总数</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-value" id="maleCount">-</div>
+                        <div class="stats-label">男性角色</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-value" id="femaleCount">-</div>
+                        <div class="stats-label">女性角色</div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-value" id="unknownCount">-</div>
+                        <div class="stats-label">未知性别</div>
+                    </div>
+                </div>
+                <div class="my-4 grid grid-cols-3 gap-4" style="padding-top: 1rem; padding-bottom: 1rem;">
+                    <input type="text" id="characterSearch" class="form-control" placeholder="搜索模型名称...">
+                    <select id="genderFilter" class="form-control">
+                        <option value="">所有性别</option>
+                        <option value="男">男</option>
+                        <option value="女">女</option>
+                        <option value="未知">未知</option>
+                    </select>
+                    <select id="versionFilter" class="form-control">
+                        <option value="">所有版本</option>
+                    </select>
+                </div>
+                <div class="table-responsive">
+                    <table id="charactersTable">
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" id="selectAllCheckbox"></th>
+                                <th>ID</th>
+                                <th>模型名称</th>
+                                <th>性别</th>
+                                <th>模型版本</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="6" class="text-center">正在加载...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Testing Tab -->
+        <div class="tab-content hidden" id="testing-tab">
+            <div class="card">
+                <div class="card-header">
+                    <h2>API测试</h2>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">提示词内容</label>
+                    <textarea id="promptInput" class="form-control form-textarea" placeholder="请输入要处理的小说文本内容..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">模型 (可选)</label>
+                    <input type="text" id="modelInput" class="form-control" placeholder="留空使用默认模型">
+                </div>
+                <button class="btn btn-primary" id="queryBtn">
+                    <i class="fas fa-paper-plane"></i> 发送测试
+                </button>
+
+                <div id="queryResult" class="hidden mt-4">
+                    <h3>处理结果</h3>
+                    <textarea id="queryOutput" class="form-control form-textarea" readonly></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div class="tab-content hidden" id="settings-tab">
+            <div class="card">
+                <div class="card-header">
+                    <h2>系统设置</h2>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">系统最大并发数</label>
+                    <input type="number" id="systemMaxConcurrency" class="form-control" min="1" max="50" value="10">
+                </div>
+                <button class="btn btn-primary" id="saveConfigBtn">
+                    <i class="fas fa-save"></i> 保存配置
+                </button>
+            </div>
+        </div>
+
+        <!-- Logs Tab -->
+        <div class="tab-content hidden" id="logs-tab">
+            <div class="card">
+                <div class="card-header">
+                    <h2>操作日志</h2>
+                </div>
+                <div class="logs-container" id="logsContainer">
+                    <p>正在加载...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Account Modal -->
+    <div class="modal" id="accountModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">添加账号</h3>
+                <button class="close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="accountForm">
+                    <input type="hidden" id="accountId">
+                    <div class="form-group">
+                        <label class="form-label">账号名称</label>
+                        <input type="text" id="accountName" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">API Token</label>
+                        <input type="text" id="accountToken" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">备注</label>
+                        <textarea id="accountNote" class="form-control"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">最小调用间隔 (秒)</label>
+                        <input type="number" id="accountInterval" class="form-control" value="12" min="0" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">最大并发数</label>
+                        <input type="number" id="accountConcurrency" class="form-control" value="1" min="1" max="10">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="accountDisabled"> 禁用账号
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="cancelAccountBtn">取消</button>
+                <button class="btn btn-primary" id="saveAccountBtn">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Character Modal -->
+    <div class="modal" id="importCharacterModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>导入角色模型</h3>
+                <button class="close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="importCharacterForm">
+                    <div class="form-group">
+                        <label class="form-label">API URL</label>
+                        <input type="text" id="apiUrl" class="form-control" value="http://127.0.0.1:8000/models" placeholder="API地址">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">版本</label>
+                        <select id="version" class="form-control">
+                            <option value="v4">v4</option>
+                            <option value="v3">v3</option>
+                            <option value="v2">v2</option>
+                            <option value="v2Pro">v2Pro</option>
+                            <option value="v2ProPlus">v2ProPlus</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="cancelImportBtn">取消</button>
+                <button class="btn btn-primary" id="importCharacterSubmitBtn">导入</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // All accounts
+        let allAccounts = [];
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                // Hide all tab contents
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+
+                // Add active class to clicked tab
+                tab.classList.add('active');
+                // Show corresponding tab content
+                const tabName = tab.getAttribute('data-tab');
+                document.getElementById(`${tabName}-tab`).classList.remove('hidden');
+            });
+        });
+
+        // Modal functionality
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('show');
+        }
+
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.remove('show');
+        }
+
+        // Close modals when clicking on close button or outside modal
+        document.querySelectorAll('.close, .modal').forEach(element => {
+            element.addEventListener('click', (e) => {
+                if (e.target === element || e.target.classList.contains('close')) {
+                    document.querySelectorAll('.modal').forEach(modal => modal.classList.remove('show'));
+                }
+            });
+        });
+
+        // Prevent modal from closing when clicking inside modal content
+        document.querySelectorAll('.modal-content').forEach(content => {
+            content.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        });
+
+        // API Request helper
+        async function apiRequest(url, options = {}) {
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                ...options
+            };
+
+            try {
+                const fullUrl = window.location.origin + url;
+                const response = await fetch(fullUrl, defaultOptions);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                    try {
+                        const errorData = JSON.parse(errorText);
+                        errorMessage = errorData.detail || errorMessage;
+                    } catch (e) {
+                        // Ignore parsing error
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    return await response.text(); // Allow non-json responses
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('[API Error]', error);
+                throw error;
+            }
+        }
+
+        // Show alert message
+        function showAlert(message, type = 'success') {
+            // Remove existing alerts
+            const existingAlert = document.querySelector('.alert');
+            if (existingAlert) {
+                existingAlert.remove();
+            }
+
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            alertDiv.style.position = 'fixed';
+            alertDiv.style.top = '20px';
+            alertDiv.style.left = '50%';
+            alertDiv.style.transform = 'translateX(-50%)';
+            alertDiv.style.zIndex = '1001';
+            alertDiv.style.minWidth = '300px';
+            alertDiv.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+            alertDiv.style.textAlign = 'center';
+
+            document.body.appendChild(alertDiv);
+
+            // Auto remove
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 3000);
+        }
+
+        // Load dashboard data
+        async function loadDashboard() {
+            try {
+                const accounts = await apiRequest('/gemini/accounts');
+
+                // Update stats
+                document.getElementById('totalAccounts').textContent = accounts.length;
+                const activeAccounts = accounts.filter(acc => !acc.disabled).length;
+                document.getElementById('activeAccounts').textContent = activeAccounts;
+                const todayTotal = accounts.reduce((sum, acc) => sum + (acc.today_count || 0), 0);
+                document.getElementById('todayTotal').textContent = todayTotal;
+
+                // Update system concurrency (placeholder)
+                document.getElementById('systemConcurrency').textContent = '0/5';
+
+                // Update concurrency status
+                updateConcurrencyDisplay(accounts);
+            } catch (error) {
+                console.error('加载仪表盘数据失败:', error);
+                showAlert('加载仪表盘数据失败: ' + error.message, 'danger');
+            }
+        }
+
+        // Update concurrency display
+        function updateConcurrencyDisplay(accounts) {
+            const container = document.getElementById('concurrencyStatus');
+
+            if (accounts.length === 0) {
+                container.innerHTML = '<p>暂无账号数据</p>';
+                return;
+            }
+
+            let html = '<div class="grid grid-cols-2">';
+            accounts.forEach(acc => {
+                const current = acc.maxConcurrency || 0;
+                const max = acc.maxConcurrency || 1;
+                const percentage = max > 0 ? Math.round((current / max) * 100) : 0;
+
+                html += `
+                    <div class="p-3 border border-gray-200 rounded mb-2">
+                        <div class="flex justify-between mb-1">
+                            <span class="font-medium">${acc.name}</span>
+                            <span>${current}/${max}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="bg-blue-600 h-2 rounded-full" style="width: ${percentage}%"></div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+
+            container.innerHTML = html;
+        }
+
+        // Load accounts
+        async function loadAccounts() {
+            try {
+                // 1. 先获取完整的 API 响应
+                const response = await apiRequest('/gemini/accounts');
+
+                // 2. 从响应中提取真正的账号列表 (response.data)
+                const accounts = response.data;// <--将获取到的账号列表存到全局变量中
+                allAccounts = accounts;
+                console.log('Accounts:', accounts)
+                const tbody = document.querySelector('#accountsTable tbody');
+
+                if (!accounts || accounts.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">暂无账号，请添加账号</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = accounts.map(acc => `
+            <tr>
+                <td>${acc.id}</td>
+                <td>${acc.name}</td>
+                <td>
+                    <span class="badge ${acc.disabled ? 'badge-danger' : 'badge-success'}">
+                        ${acc.disabled ? '禁用' : '启用'}
+                    </span>
+                </td>
+
+                <!-- 3. 'today_count' 字段在数据中不存在，暂时显示为 0 -->
+                <td>${acc.today_count || 0}</td>
+
+                <!-- 4. 修正字段名：将 max_concurrency 改为 maxConcurrency -->
+                <td>${acc.maxConcurrency || 1}</td>
+
+                <td>
+                    <button class="btn btn-sm btn-primary mr-1" onclick="editAccount(${acc.id})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm ${acc.disabled ? 'btn-success' : 'btn-warning'} mr-1"
+                            onclick="toggleAccount(${acc.id})">
+                        <i class="fas fa-${acc.disabled ? 'play' : 'pause'}"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteAccount(${acc.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+            } catch (error) {
+                console.error('加载账号列表失败:', error);
+                document.querySelector('#accountsTable tbody').innerHTML =
+                    `<tr><td colspan="6" class="text-center text-red-500">加载失败: ${error.message}</td></tr>`;
+                showAlert('加载账号列表失败: ' + error.message, 'danger');
+            }
+        }
+
+
+        // Load characters
+        async function loadCharacters() {
+            const search = document.getElementById('characterSearch').value;
+            const gender = document.getElementById('genderFilter').value;
+            const version = document.getElementById('versionFilter').value;
+
+            const params = new URLSearchParams();
+            if (search) params.append('search', search);
+            if (gender) params.append('gender', gender);
+            if (version) params.append('version', version);
+
+            try {
+                const response1 = await apiRequest(`/gemini/characters?${params.toString()}`);
+                const response=response1.data;
+                const characters = response.data || [];
+                const tbody = document.querySelector('#charactersTable tbody');
+
+                // Update statistics
+                const stats = response.statistics || { total: 0, gender: { '男': 0, '女': 0, '未知': 0 } };
+
+                document.getElementById('totalCharacters').textContent = stats.total;
+                document.getElementById('maleCount').textContent = stats.gender.男 || 0;
+                document.getElementById('femaleCount').textContent = stats.gender.女 || 0;
+                document.getElementById('unknownCount').textContent = stats.gender.未知 || 0;
+
+                // Update version filter
+                const versionFilter = document.getElementById('versionFilter');
+                if (response.versions && versionFilter.options.length <= 1) {
+                    response.versions.forEach(v => {
+                        const option = document.createElement('option');
+                        option.value = v;
+                        option.textContent = v;
+                        versionFilter.appendChild(option);
+                    });
+                }
+
+                if (characters.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">暂无角色数据</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = characters.map(char => `
+                    <tr>
+                        <td><input type="checkbox" class="row-checkbox" data-id="${char.id}"></td>
+                        <td>${char.id}</td>
+                        <td>${char.modelname}</td>
+                        <td>
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                                <button class="btn btn-sm btn-secondary" onclick="changeGender(${char.id}, '${char.gender}', 'prev')">&#9664;</button>
+                                <span class="badge ${char.gender === '男' ? 'badge-success' : char.gender === '女' ? 'badge-pink' : 'badge-secondary'}" style="width: 60px; display: inline-block; text-align: center;">
+                                    ${char.gender}
+                                </span>
+                                <button class="btn btn-sm btn-secondary" onclick="changeGender(${char.id}, '${char.gender}', 'next')">&#9654;</button>
+                            </div>
+                        </td>
+                        <td>${char.version || 'N/A'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-danger" onclick="deleteCharacter(${char.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                attachCheckboxListeners();
+
+            } catch (error) {
+                console.error('加载角色数据失败:', error);
+                document.querySelector('#charactersTable tbody').innerHTML =
+                    `<tr><td colspan="6" class="text-center text-red-500">加载失败: ${error.message}</td></tr>`;
+                showAlert('加载角色数据失败: ' + error.message, 'danger');
+            }
+        }
+
+        // Load logs
+        async function loadLogs() {
+            try {
+                const logs = await apiRequest('/gemini/logs?page_size=50');
+                const container = document.getElementById('logsContainer');
+
+                if (logs.length === 0) {
+                    container.innerHTML = '<p class="text-center text-gray-500">暂无操作日志</p>';
+                    return;
+                }
+
+                container.innerHTML = logs.map(log => `
+                    <div class="log-item">
+                        <span class="log-time">${new Date(log.time).toLocaleString()}</span>
+                        <span class="log-account">${log.account}</span>
+                        <span class="badge ${log.answer ? 'badge-success' : 'badge-danger'}">
+                            ${log.answer ? '成功' : '失败'}
+                        </span>
+                        <div class="mt-1 text-sm text-gray-600">
+                            ${log.prompt.substring(0, 100)}${log.prompt.length > 100 ? '...' : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('加载日志失败:', error);
+                document.getElementById('logsContainer').innerHTML =
+                    `<p class="text-center text-red-500">加载失败: ${error.message}</p>`;
+            }
+        }
+
+        // Load system config
+        async function loadSystemConfig() {
+            try {
+                const config = await apiRequest('/gemini/system_config');
+                document.getElementById('systemMaxConcurrency').value = config.system_max_concurrency;
+            } catch (error) {
+                console.error('加载系统配置失败:', error);
+                showAlert('加载系统配置失败: ' + error.message, 'danger');
+            }
+        }
+
+        // Test API query
+        async function testQuery() {
+            const prompt = document.getElementById('promptInput').value.trim();
+            const model = document.getElementById('modelInput').value.trim() || undefined;
+            const queryBtn = document.getElementById('queryBtn');
+            const queryResult = document.getElementById('queryResult');
+            const queryOutput = document.getElementById('queryOutput');
+
+            if (!prompt) {
+                showAlert('请输入提示词内容', 'danger');
+                return;
+            }
+
+            queryBtn.disabled = true;
+            queryBtn.innerHTML = '<span class="loading"></span> 处理中...';
+            queryResult.classList.add('hidden');
+
+            try {
+                const response = await apiRequest('/gemini/query', {
+                    method: 'POST',
+                    body: JSON.stringify({ prompt, model })
+                });
+
+                queryOutput.value = JSON.stringify(response, null, 2);
+                queryResult.classList.remove('hidden');
+                showAlert('API测试成功');
+            } catch (error) {
+                console.error('API测试失败:', error);
+                queryOutput.value = `错误: ${error.message}`;
+                queryResult.classList.remove('hidden');
+                showAlert('API测试失败: ' + error.message, 'danger');
+            } finally {
+                queryBtn.disabled = false;
+                queryBtn.innerHTML = '<i class="fas fa-paper-plane"></i> 发送测试';
+            }
+        }
+
+        // Add account button
+        document.getElementById('addAccountBtn').addEventListener('click', () => {
+            document.getElementById('modalTitle').textContent = '添加账号';
+            document.getElementById('accountId').value = '';
+            document.getElementById('accountForm').reset();
+            showModal('accountModal');
+        });
+
+
+
+        // Edit account
+        function editAccount(accId) {
+            // 1. 从已加载的 allAccounts 数组中查找匹配ID的账号
+            const accountToEdit = allAccounts.find(acc => acc.id === accId);
+
+            // 2. 如果没找到，提示错误并返回
+            if (!accountToEdit) {
+                console.error('Account not found with ID:', accId);
+                showAlert('找不到该账号，请刷新页面重试', 'danger');
+                return;
+            }
+
+            // 3. 填充弹窗表单的各个字段
+            document.getElementById('modalTitle').textContent = '编辑账号';
+            document.getElementById('accountId').value = accountToEdit.id;
+            document.getElementById('accountName').value = accountToEdit.name;
+            document.getElementById('accountToken').value = accountToEdit.token;
+            document.getElementById('accountNote').value = accountToEdit.note;
+            document.getElementById('accountInterval').value = accountToEdit.minInterval;
+            // 注意：HTML中的ID是accountConcurrency，而JSON数据字段是maxConcurrency
+            document.getElementById('accountConcurrency').value = accountToEdit.maxConcurrency;
+            // 复选框需要设置 .checked 属性，而不是 .value
+            document.getElementById('accountDisabled').checked = !!accountToEdit.disabled; // 使用 !! 将 0/1 转换为 false/true
+
+            // 4. 显示弹窗
+            showModal('accountModal');
+        }
+
+
+        // Toggle account status
+        async function toggleAccount(accId) {
+            try {
+                await apiRequest(`/gemini/toggle_account/${accId}`, { method: 'POST' });
+                showAlert('账号状态已更新');
+                loadAccounts();
+                loadDashboard();
+            } catch (error) {
+                console.error('更新账号状态失败:', error);
+                showAlert('更新账号状态失败: ' + error.message, 'danger');
+            }
+        }
+
+        // Delete account
+        async function deleteAccount(accId) {
+            if (!confirm('确定要删除这个账号吗？此操作不可撤销。')) {
+                return;
+            }
+
+            try {
+                await apiRequest(`/gemini/accounts/${accId}`, { method: 'DELETE' });
+                showAlert('账号删除成功');
+                loadAccounts();
+                loadDashboard();
+            } catch (error) {
+                console.error('删除账号失败:', error);
+                showAlert('删除账号失败: ' + error.message, 'danger');
+            }
+        }
+
+        // Delete character
+        async function deleteCharacter(characterId) {
+            if (!confirm('确定要删除这个角色吗？此操作不可撤销。')) {
+                return;
+            }
+
+            try {
+                await apiRequest(`/gemini/characters/${characterId}`, { method: 'DELETE' });
+                showAlert('角色删除成功');
+                loadCharacters();
+            } catch (error) {
+                console.error('删除角色失败:', error);
+                showAlert('删除角色失败: ' + error.message, 'danger');
+            }
+        }
+
+        // Batch delete characters
+        async function batchDeleteCharacters() {
+            const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked'))
+                                     .map(cb => parseInt(cb.dataset.id));
+
+            if (selectedIds.length === 0) {
+                showAlert('请先选择要删除的角色', 'danger');
+                return;
+            }
+
+            if (!confirm(`确定要删除选中的 ${selectedIds.length} 个角色吗？此操作不可撤销。`)) {
+                return;
+            }
+
+            try {
+                await apiRequest('/gemini/characters/batch_delete', {
+                    method: 'POST',
+                    body: JSON.stringify({ ids: selectedIds })
+                });
+                showAlert('批量删除成功');
+                loadCharacters();
+            } catch (error) {
+                console.error('批量删除失败:', error);
+                showAlert('批量删除失败: ' + error.message, 'danger');
+            }
+        }
+
+        // Change character gender
+        async function changeGender(characterId, currentGender, direction) {
+            const genders = ['男', '未知', '女'];
+            let currentIndex = genders.indexOf(currentGender);
+
+            if (direction === 'next') {
+                currentIndex = (currentIndex + 1) % genders.length;
+            } else {
+                currentIndex = (currentIndex - 1 + genders.length) % genders.length;
+            }
+            const newGender = genders[currentIndex];
+
+            try {
+                await apiRequest(`/gemini/characters/${characterId}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ gender: newGender })
+                });
+                showAlert('性别更新成功');
+                loadCharacters();
+            } catch (error) {
+                console.error('更新性别失败:', error);
+                showAlert('更新性别失败: ' + error.message, 'danger');
+            }
+        }
+
+        // Checkbox listeners
+        function attachCheckboxListeners() {
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+            const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+
+            selectAllCheckbox.addEventListener('change', (e) => {
+                rowCheckboxes.forEach(cb => {
+                    cb.checked = e.target.checked;
+                });
+                toggleBatchDeleteButton();
+            });
+
+            rowCheckboxes.forEach(cb => {
+                cb.addEventListener('change', () => {
+                    if (!cb.checked) {
+                        selectAllCheckbox.checked = false;
+                    } else {
+                        if (Array.from(rowCheckboxes).every(i => i.checked)) {
+                            selectAllCheckbox.checked = true;
+                        }
+                    }
+                    toggleBatchDeleteButton();
+                });
+            });
+        }
+
+        function toggleBatchDeleteButton() {
+            const anyChecked = Array.from(document.querySelectorAll('.row-checkbox')).some(cb => cb.checked);
+            document.getElementById('batchDeleteBtn').style.display = anyChecked ? 'inline-flex' : 'none';
+        }
+
+
+        // Save account
+        document.getElementById('saveAccountBtn').addEventListener('click', async () => {
+            const accountId = document.getElementById('accountId').value;
+            const formData = {
+                name: document.getElementById('accountName').value,
+                token: document.getElementById('accountToken').value,
+                note: document.getElementById('accountNote').value,
+                minInterval: parseFloat(document.getElementById('accountInterval').value),
+                maxConcurrency: parseInt(document.getElementById('accountConcurrency').value),
+                disabled: document.getElementById('accountDisabled').checked ? 1 : 0
+            };
+
+            console.log(formData)
+            try {
+                if (accountId) {
+                    // Update existing account
+                    await apiRequest(`/gemini/accounts/${accountId}`, {
+                        method: 'PUT',
+                        body: JSON.stringify(formData)
+                    });
+                } else {
+                    // Create new account
+                    await apiRequest('/gemini/accounts', {
+                        method: 'POST',
+                        body: JSON.stringify(formData)
+                    });
+                }
+
+                showAlert('账号保存成功');
+                hideModal('accountModal');
+                loadAccounts();
+                loadDashboard();
+            } catch (error) {
+                console.error('保存账号失败:', error);
+                showAlert('保存账号失败: ' + error.message, 'danger');
+            }
+        });
+
+        // Import characters
+        document.getElementById('importCharacterBtn').addEventListener('click', () => {
+            document.getElementById('importCharacterForm').reset();
+            showModal('importCharacterModal');
+        });
+
+        // Submit character import
+        document.getElementById('importCharacterSubmitBtn').addEventListener('click', async () => {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const version = document.getElementById('version').value;
+
+            if (!apiUrl) {
+                showAlert('请输入API地址', 'danger');
+                return;
+            }
+
+            try {
+                const response = await apiRequest('/gemini/characters/import', {
+                    method: 'POST',
+                    body: JSON.stringify({ apiUrl: apiUrl, version: version })
+                });
+
+                showAlert(`导入成功！导入了 ${response.data} 个角色`);
+                hideModal('importCharacterModal');
+                loadCharacters();
+            } catch (error) {
+                console.error('导入角色失败:', error);
+                showAlert('导入角色失败: ' + error.message, 'danger');
+            }
+        });
+
+        // Save system config
+        document.getElementById('saveConfigBtn').addEventListener('click', async () => {
+            const maxConcurrency = parseInt(document.getElementById('systemMaxConcurrency').value);
+
+            if (maxConcurrency < 1 || maxConcurrency > 50) {
+                showAlert('系统最大并发数必须在1-50之间', 'danger');
+                return;
+            }
+
+            try {
+                await apiRequest('/gemini/system_config', {
+                    method: 'PUT',
+                    body: JSON.stringify({ system_max_concurrency: maxConcurrency })
+                });
+
+                showAlert('系统配置已更新');
+                loadDashboard();
+            } catch (error) {
+                console.error('更新系统配置失败:', error);
+                showAlert('更新系统配置失败: ' + error.message, 'danger');
+            }
+        });
+
+        // Event listeners
+        document.getElementById('queryBtn').addEventListener('click', testQuery);
+        document.getElementById('cancelAccountBtn').addEventListener('click', () => hideModal('accountModal'));
+        document.getElementById('cancelImportBtn').addEventListener('click', () => hideModal('importCharacterModal'));
+        document.getElementById('batchDeleteBtn').addEventListener('click', batchDeleteCharacters);
+
+        // Character filter listeners
+        document.getElementById('characterSearch').addEventListener('input', () => loadCharacters());
+        document.getElementById('genderFilter').addEventListener('change', () => loadCharacters());
+        document.getElementById('versionFilter').addEventListener('change', () => loadCharacters());
+
+        // Initialize data
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboard();
+            loadAccounts();
+            loadCharacters();
+            loadLogs();
+            loadSystemConfig();
+
+            // Refresh data every 30 seconds
+            setInterval(() => {
+                const activeTab = document.querySelector('.tab.active').getAttribute('data-tab');
+                switch (activeTab) {
+                    case 'dashboard':
+                        loadDashboard();
+                        break;
+                    case 'accounts':
+                        loadAccounts();
+                        break;
+                    case 'characters':
+                        loadCharacters();
+                        break;
+                    case 'logs':
+                        loadLogs();
+                        break;
+                }
+            }, 30000);
+        });
+    </script>
+</body>
+</html>
