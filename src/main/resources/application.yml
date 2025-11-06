@@ -1,8 +1,46 @@
+# springboot
 server:
+  #端口
   port: 8888
+#数据源
 spring:
   datasource:
+    #数据库驱动
     driver-class-name: com.mysql.cj.jdbc.Driver
+    #数据库连接地址
     url: jdbc:mysql://127.0.0.1:3306/novel_tts?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UT
+    #数据库用户名
     username: root
+    #数据库密码
     password: 123456
+#模型参数
+gemini:
+  GeminiConcurrentProcessor:
+    concurrent:
+      #滑动窗口大小和重叠长度
+      WINDOW_SIZE: 50
+      #重叠长度
+      OVERLAP: 10
+#      #最大并发数
+#      MAX_CONCURRENT: 5
+      #重叠保留长度
+      OVERLAP_KEEP: 5
+      #模型思考功能控制（0为关闭，1为开启）
+      THINKING_BUDGET: 0
+    api:
+      #api url
+      url: "http://154.44.15.21:8006"
+
+reset:
+  enabled: true  # 是否启用该功能
+  tasks:
+    - table: "api_token"
+      field: "alive_thread"
+      value: 0
+      condition: "WHERE alive_thread !=0"
+#    - table: "task"
+#      field: "status"
+#      value: "pending"
+#      condition: "WHERE completed=0"# 可为空
+so-novel:
+  novelPath: "" # 路径

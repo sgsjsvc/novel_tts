@@ -16,6 +16,9 @@ public class Api {
     private double minInterval;
     private int maxConcurrency;
     private Integer disabled;
+    private Integer aliveThread;
+    private Integer requestFrequency;
+
 
 
 }

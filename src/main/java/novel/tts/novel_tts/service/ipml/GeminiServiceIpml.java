@@ -4,6 +4,8 @@ package novel.tts.novel_tts.service.ipml;
 import lombok.extern.slf4j.Slf4j;
 import novel.tts.novel_tts.mapper.GeminiMapper;
 import novel.tts.novel_tts.pojo.Api;
+import novel.tts.novel_tts.pojo.Dashboard;
+import novel.tts.novel_tts.pojo.DashboardApi;
 import novel.tts.novel_tts.service.GeminiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -51,6 +53,18 @@ public class GeminiServiceIpml implements GeminiService {
     public void deleteApi(Integer id) {
         log.info("开始删除数据");
         geminiMapper.deleteApi(id);
+    }
+
+    @Override
+    public Dashboard getSystemConfig() {
+        log.info("开始获取系统配置");
+        int totalAccounts = geminiMapper.getTotalAccounts();
+        int activeAccounts = geminiMapper.getActiveAccounts();
+        int requestFrequency = geminiMapper.getRequestFrequency();
+        int systemThreads = geminiMapper.getSystemThreads();
+        int totalThreads = geminiMapper.getMaxConcurrency();
+        List<DashboardApi> api = geminiMapper.getDashboardApi();
+        return new Dashboard(totalAccounts, activeAccounts, requestFrequency, systemThreads,totalThreads,api);
     }
 
 

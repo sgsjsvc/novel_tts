@@ -339,8 +339,12 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .alert {
@@ -361,10 +365,16 @@
             border: 1px solid #fecaca;
         }
 
-        .logs-container {
-            max-height: 400px;
-            overflow-y: auto;
+        #logs {
+            white-space: pre-wrap;
+            border: 1px solid #ddd;
+            padding: 10px;
+            height: 70vh;
+            overflow: auto;
+            background: #f9f9f9;
+            font-family: Consolas, monospace;
         }
+        .info { color: #333; }
 
         .log-item {
             padding: 0.5rem 0;
@@ -396,6 +406,7 @@
             .container {
                 padding: 1rem;
             }
+
             .card {
                 padding: 1rem;
             }
@@ -403,429 +414,429 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1><i class="fas fa-microchip mr-2"></i>Gemini AI 管理面板</h1>
-            <div id="connectionStatus">🟢 连接正常</div>
-        </div>
+<div class="container">
+    <div class="header">
+        <h1><i class="fas fa-microchip mr-2"></i>Gemini AI 管理面板</h1>
+        <div id="connectionStatus">🟢 连接正常</div>
+    </div>
 
-        <div class="tabs">
-            <div class="tab active" data-tab="dashboard">仪表盘</div>
-            <div class="tab" data-tab="accounts">账号管理</div>
-            <div class="tab" data-tab="characters">角色管理</div>
-            <div class="tab" data-tab="testing">API测试</div>
-            <div class="tab" data-tab="settings">系统设置</div>
-            <div class="tab" data-tab="logs">操作日志</div>
-        </div>
+    <div class="tabs">
+        <div class="tab active" data-tab="dashboard">仪表盘</div>
+        <div class="tab" data-tab="accounts">账号管理</div>
+        <div class="tab" data-tab="characters">角色管理</div>
+        <div class="tab" data-tab="testing">API测试</div>
+<!--        <div class="tab" data-tab="settings">系统设置</div>-->
+        <div class="tab" data-tab="logs">操作日志</div>
+    </div>
 
-        <!-- Dashboard Tab -->
-        <div class="tab-content" id="dashboard-tab">
-            <div class="grid grid-cols-4">
-                <div class="stats-card">
-                    <div class="stats-value" id="totalAccounts">-</div>
-                    <div class="stats-label">总账号数</div>
-                </div>
-                <div class="stats-card">
-                    <div class="stats-value" id="activeAccounts">-</div>
-                    <div class="stats-label">活跃账号</div>
-                </div>
-                <div class="stats-card">
-                    <div class="stats-value" id="todayTotal">-</div>
-                    <div class="stats-label">今日调用</div>
-                </div>
-                <div class="stats-card">
-                    <div class="stats-value" id="systemConcurrency">-</div>
-                    <div class="stats-label">系统并发</div>
-                </div>
+    <!-- Dashboard Tab -->
+    <div class="tab-content" id="dashboard-tab">
+        <div class="grid grid-cols-4">
+            <div class="stats-card">
+                <div class="stats-value" id="totalAccounts">-</div>
+                <div class="stats-label">总账号数</div>
             </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h2>账号并发状态</h2>
-                </div>
-                <div id="concurrencyStatus">
-                    <p>正在加载...</p>
-                </div>
+            <div class="stats-card">
+                <div class="stats-value" id="activeAccounts">-</div>
+                <div class="stats-label">活跃账号</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-value" id="todayTotal">-</div>
+                <div class="stats-label">调用次数</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-value" id="systemConcurrency">-</div>
+                <div class="stats-label">系统并发</div>
             </div>
         </div>
 
-        <!-- Accounts Tab -->
-        <div class="tab-content hidden" id="accounts-tab">
-            <div class="card">
-                <div class="card-header">
-                    <h2>账号管理</h2>
-                    <button class="btn btn-primary" id="addAccountBtn">
-                        <i class="fas fa-plus"></i> 添加账号
+        <div class="card">
+            <div class="card-header">
+                <h2>账号并发状态</h2>
+            </div>
+            <div id="concurrencyStatus">
+                <p>正在加载...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Accounts Tab -->
+    <div class="tab-content hidden" id="accounts-tab">
+        <div class="card">
+            <div class="card-header">
+                <h2>账号管理</h2>
+                <button class="btn btn-primary" id="addAccountBtn">
+                    <i class="fas fa-plus"></i> 添加账号
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table id="accountsTable">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>名称</th>
+                        <th>状态</th>
+                        <th>调用次数</th>
+                        <th>最大并发</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td colspan="6" class="text-center">正在加载...</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Characters Tab -->
+    <div class="tab-content hidden" id="characters-tab">
+        <div class="card">
+            <div class="card-header">
+                <h2>角色管理</h2>
+                <div>
+                    <button class="btn btn-danger mr-2" id="batchDeleteBtn" style="display: none;">
+                        <i class="fas fa-trash"></i> 批量删除
+                    </button>
+                    <button class="btn btn-primary" id="importCharacterBtn">
+                        <i class="fas fa-download"></i> 导入角色
                     </button>
                 </div>
-                <div class="table-responsive">
-                    <table id="accountsTable">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>名称</th>
-                                <th>状态</th>
-                                <th>今日调用</th>
-                                <th>最大并发</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td colspan="6" class="text-center">正在加载...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+            </div>
+            <div class="grid grid-cols-4 mb-4">
+                <div class="stats-card">
+                    <div class="stats-value" id="totalCharacters">-</div>
+                    <div class="stats-label">角色总数</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-value" id="maleCount">-</div>
+                    <div class="stats-label">男性角色</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-value" id="femaleCount">-</div>
+                    <div class="stats-label">女性角色</div>
+                </div>
+                <div class="stats-card">
+                    <div class="stats-value" id="unknownCount">-</div>
+                    <div class="stats-label">未知性别</div>
                 </div>
             </div>
+            <div class="my-4 grid grid-cols-3 gap-4" style="padding-top: 1rem; padding-bottom: 1rem;">
+                <input type="text" id="characterSearch" class="form-control" placeholder="搜索模型名称...">
+                <select id="genderFilter" class="form-control">
+                    <option value="">所有性别</option>
+                    <option value="男">男</option>
+                    <option value="女">女</option>
+                    <option value="未知">未知</option>
+                </select>
+                <select id="versionFilter" class="form-control">
+                    <option value="">所有版本</option>
+                </select>
+            </div>
+            <div class="table-responsive">
+                <table id="charactersTable">
+                    <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAllCheckbox"></th>
+                        <th>ID</th>
+                        <th>模型名称</th>
+                        <th>性别</th>
+                        <th>模型版本</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td colspan="6" class="text-center">正在加载...</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
+    </div>
 
-        <!-- Characters Tab -->
-        <div class="tab-content hidden" id="characters-tab">
-            <div class="card">
-                <div class="card-header">
-                    <h2>角色管理</h2>
-                    <div>
-                        <button class="btn btn-danger mr-2" id="batchDeleteBtn" style="display: none;">
-                            <i class="fas fa-trash"></i> 批量删除
-                        </button>
-                        <button class="btn btn-primary" id="importCharacterBtn">
-                            <i class="fas fa-download"></i> 导入角色
-                        </button>
-                    </div>
+    <!-- Testing Tab -->
+    <div class="tab-content hidden" id="testing-tab">
+        <div class="card">
+            <div class="card-header">
+                <h2>API测试</h2>
+            </div>
+            <div class="form-group">
+                <label class="form-label">提示词内容</label>
+                <textarea id="promptInput" class="form-control form-textarea"
+                          placeholder="请输入要处理的小说文本内容..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">模型 (可选)</label>
+                <input type="text" id="modelInput" class="form-control" placeholder="留空使用默认模型">
+            </div>
+            <button class="btn btn-primary" id="queryBtn">
+                <i class="fas fa-paper-plane"></i> 发送测试
+            </button>
+
+            <div id="queryResult" class="hidden mt-4">
+                <h3>处理结果</h3>
+                <textarea id="queryOutput" class="form-control form-textarea" readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Tab -->
+<!--    <div class="tab-content hidden" id="settings-tab">-->
+<!--        <div class="card">-->
+<!--            <div class="card-header">-->
+<!--                <h2>系统设置</h2>-->
+<!--            </div>-->
+<!--            <div class="form-group">-->
+<!--                <label class="form-label">系统最大并发数</label>-->
+<!--                <input type="number" id="systemMaxConcurrency" class="form-control" min="1" max="50" value="10">-->
+<!--            </div>-->
+<!--            <button class="btn btn-primary" id="saveConfigBtn">-->
+<!--                <i class="fas fa-save"></i> 保存配置-->
+<!--            </button>-->
+<!--        </div>-->
+<!--    </div>-->
+
+    <!-- Logs Tab -->
+    <div class="tab-content hidden" id="logs-tab">
+        <div class="card">
+            <div class="card-header">
+                <h2>操作日志</h2>
+            </div>
+            <div  id="logs">连接中...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Account Modal -->
+<div class="modal" id="accountModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">添加账号</h3>
+            <button class="close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="accountForm">
+                <input type="hidden" id="accountId">
+                <div class="form-group">
+                    <label class="form-label">账号名称</label>
+                    <input type="text" id="accountName" class="form-control" required>
                 </div>
-                <div class="grid grid-cols-4 mb-4">
-                    <div class="stats-card">
-                        <div class="stats-value" id="totalCharacters">-</div>
-                        <div class="stats-label">角色总数</div>
-                    </div>
-                    <div class="stats-card">
-                        <div class="stats-value" id="maleCount">-</div>
-                        <div class="stats-label">男性角色</div>
-                    </div>
-                    <div class="stats-card">
-                        <div class="stats-value" id="femaleCount">-</div>
-                        <div class="stats-label">女性角色</div>
-                    </div>
-                    <div class="stats-card">
-                        <div class="stats-value" id="unknownCount">-</div>
-                        <div class="stats-label">未知性别</div>
-                    </div>
+                <div class="form-group">
+                    <label class="form-label">API Token</label>
+                    <input type="text" id="accountToken" class="form-control" required>
                 </div>
-                <div class="my-4 grid grid-cols-3 gap-4" style="padding-top: 1rem; padding-bottom: 1rem;">
-                    <input type="text" id="characterSearch" class="form-control" placeholder="搜索模型名称...">
-                    <select id="genderFilter" class="form-control">
-                        <option value="">所有性别</option>
-                        <option value="男">男</option>
-                        <option value="女">女</option>
-                        <option value="未知">未知</option>
+                <div class="form-group">
+                    <label class="form-label">备注</label>
+                    <textarea id="accountNote" class="form-control"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">最小调用间隔 (秒)</label>
+                    <input type="number" id="accountInterval" class="form-control" value="12" min="0" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">最大并发数</label>
+                    <input type="number" id="accountConcurrency" class="form-control" value="1" min="1" max="10">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" id="accountDisabled"> 禁用账号
+                    </label>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" id="cancelAccountBtn">取消</button>
+            <button class="btn btn-primary" id="saveAccountBtn">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- Import Character Modal -->
+<div class="modal" id="importCharacterModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>导入角色模型</h3>
+            <button class="close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="importCharacterForm">
+                <div class="form-group">
+                    <label class="form-label">API URL</label>
+                    <input type="text" id="apiUrl" class="form-control" value="http://127.0.0.1:8000/models"
+                           placeholder="API地址">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">版本</label>
+                    <select id="version" class="form-control">
+                        <option value="v4">v4</option>
+                        <option value="v3">v3</option>
+                        <option value="v2">v2</option>
+                        <option value="v2Pro">v2Pro</option>
+                        <option value="v2ProPlus">v2ProPlus</option>
                     </select>
-                    <select id="versionFilter" class="form-control">
-                        <option value="">所有版本</option>
-                    </select>
                 </div>
-                <div class="table-responsive">
-                    <table id="charactersTable">
-                        <thead>
-                            <tr>
-                                <th><input type="checkbox" id="selectAllCheckbox"></th>
-                                <th>ID</th>
-                                <th>模型名称</th>
-                                <th>性别</th>
-                                <th>模型版本</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td colspan="6" class="text-center">正在加载...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            </form>
         </div>
-
-        <!-- Testing Tab -->
-        <div class="tab-content hidden" id="testing-tab">
-            <div class="card">
-                <div class="card-header">
-                    <h2>API测试</h2>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">提示词内容</label>
-                    <textarea id="promptInput" class="form-control form-textarea" placeholder="请输入要处理的小说文本内容..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">模型 (可选)</label>
-                    <input type="text" id="modelInput" class="form-control" placeholder="留空使用默认模型">
-                </div>
-                <button class="btn btn-primary" id="queryBtn">
-                    <i class="fas fa-paper-plane"></i> 发送测试
-                </button>
-
-                <div id="queryResult" class="hidden mt-4">
-                    <h3>处理结果</h3>
-                    <textarea id="queryOutput" class="form-control form-textarea" readonly></textarea>
-                </div>
-            </div>
-        </div>
-
-        <!-- Settings Tab -->
-        <div class="tab-content hidden" id="settings-tab">
-            <div class="card">
-                <div class="card-header">
-                    <h2>系统设置</h2>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">系统最大并发数</label>
-                    <input type="number" id="systemMaxConcurrency" class="form-control" min="1" max="50" value="10">
-                </div>
-                <button class="btn btn-primary" id="saveConfigBtn">
-                    <i class="fas fa-save"></i> 保存配置
-                </button>
-            </div>
-        </div>
-
-        <!-- Logs Tab -->
-        <div class="tab-content hidden" id="logs-tab">
-            <div class="card">
-                <div class="card-header">
-                    <h2>操作日志</h2>
-                </div>
-                <div class="logs-container" id="logsContainer">
-                    <p>正在加载...</p>
-                </div>
-            </div>
+        <div class="modal-footer">
+            <button class="btn" id="cancelImportBtn">取消</button>
+            <button class="btn btn-primary" id="importCharacterSubmitBtn">导入</button>
         </div>
     </div>
+</div>
 
-    <!-- Add/Edit Account Modal -->
-    <div class="modal" id="accountModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modalTitle">添加账号</h3>
-                <button class="close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="accountForm">
-                    <input type="hidden" id="accountId">
-                    <div class="form-group">
-                        <label class="form-label">账号名称</label>
-                        <input type="text" id="accountName" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">API Token</label>
-                        <input type="text" id="accountToken" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">备注</label>
-                        <textarea id="accountNote" class="form-control"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">最小调用间隔 (秒)</label>
-                        <input type="number" id="accountInterval" class="form-control" value="12" min="0" step="0.1">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">最大并发数</label>
-                        <input type="number" id="accountConcurrency" class="form-control" value="1" min="1" max="10">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">
-                            <input type="checkbox" id="accountDisabled"> 禁用账号
-                        </label>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn" id="cancelAccountBtn">取消</button>
-                <button class="btn btn-primary" id="saveAccountBtn">保存</button>
-            </div>
-        </div>
-    </div>
+<script>
+    // All accounts
+    let allAccounts = [];
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
 
-    <!-- Import Character Modal -->
-    <div class="modal" id="importCharacterModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>导入角色模型</h3>
-                <button class="close">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="importCharacterForm">
-                    <div class="form-group">
-                        <label class="form-label">API URL</label>
-                        <input type="text" id="apiUrl" class="form-control" value="http://127.0.0.1:8000/models" placeholder="API地址">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">版本</label>
-                        <select id="version" class="form-control">
-                            <option value="v4">v4</option>
-                            <option value="v3">v3</option>
-                            <option value="v2">v2</option>
-                            <option value="v2Pro">v2Pro</option>
-                            <option value="v2ProPlus">v2ProPlus</option>
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn" id="cancelImportBtn">取消</button>
-                <button class="btn btn-primary" id="importCharacterSubmitBtn">导入</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // All accounts
-        let allAccounts = [];
-        // Tab switching
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                // Remove active class from all tabs
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                // Hide all tab contents
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-
-                // Add active class to clicked tab
-                tab.classList.add('active');
-                // Show corresponding tab content
-                const tabName = tab.getAttribute('data-tab');
-                document.getElementById(`${tabName}-tab`).classList.remove('hidden');
-            });
+            // Add active class to clicked tab
+            tab.classList.add('active');
+            // Show corresponding tab content
+            const tabName = tab.getAttribute('data-tab');
+            document.getElementById(`${tabName}-tab`).classList.remove('hidden');
         });
+    });
 
-        // Modal functionality
-        function showModal(modalId) {
-            document.getElementById(modalId).classList.add('show');
-        }
+    // Modal functionality
+    function showModal(modalId) {
+        document.getElementById(modalId).classList.add('show');
+    }
 
-        function hideModal(modalId) {
-            document.getElementById(modalId).classList.remove('show');
-        }
+    function hideModal(modalId) {
+        document.getElementById(modalId).classList.remove('show');
+    }
 
-        // Close modals when clicking on close button or outside modal
-        document.querySelectorAll('.close, .modal').forEach(element => {
-            element.addEventListener('click', (e) => {
-                if (e.target === element || e.target.classList.contains('close')) {
-                    document.querySelectorAll('.modal').forEach(modal => modal.classList.remove('show'));
-                }
-            });
+    // Close modals when clicking on close button or outside modal
+    document.querySelectorAll('.close, .modal').forEach(element => {
+        element.addEventListener('click', (e) => {
+            if (e.target === element || e.target.classList.contains('close')) {
+                document.querySelectorAll('.modal').forEach(modal => modal.classList.remove('show'));
+            }
         });
+    });
 
-        // Prevent modal from closing when clicking inside modal content
-        document.querySelectorAll('.modal-content').forEach(content => {
-            content.addEventListener('click', (e) => {
-                e.stopPropagation();
-            });
+    // Prevent modal from closing when clicking inside modal content
+    document.querySelectorAll('.modal-content').forEach(content => {
+        content.addEventListener('click', (e) => {
+            e.stopPropagation();
         });
+    });
 
-        // API Request helper
-        async function apiRequest(url, options = {}) {
-            const defaultOptions = {
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                ...options
-            };
+    // API Request helper
+    async function apiRequest(url, options = {}) {
+        const defaultOptions = {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            ...options
+        };
 
-            try {
-                const fullUrl = window.location.origin + url;
-                const response = await fetch(fullUrl, defaultOptions);
+        try {
+            const fullUrl = window.location.origin + url;
+            const response = await fetch(fullUrl, defaultOptions);
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-                    try {
-                        const errorData = JSON.parse(errorText);
-                        errorMessage = errorData.detail || errorMessage;
-                    } catch (e) {
-                        // Ignore parsing error
-                    }
-                    throw new Error(errorMessage);
+            if (!response.ok) {
+                const errorText = await response.text();
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const errorData = JSON.parse(errorText);
+                    errorMessage = errorData.detail || errorMessage;
+                } catch (e) {
+                    // Ignore parsing error
                 }
-
-                const contentType = response.headers.get('content-type');
-                if (!contentType || !contentType.includes('application/json')) {
-                    return await response.text(); // Allow non-json responses
-                }
-
-                return await response.json();
-            } catch (error) {
-                console.error('[API Error]', error);
-                throw error;
+                throw new Error(errorMessage);
             }
+
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                return await response.text(); // Allow non-json responses
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('[API Error]', error);
+            throw error;
+        }
+    }
+
+    // Show alert message
+    function showAlert(message, type = 'success') {
+        // Remove existing alerts
+        const existingAlert = document.querySelector('.alert');
+        if (existingAlert) {
+            existingAlert.remove();
         }
 
-        // Show alert message
-        function showAlert(message, type = 'success') {
-            // Remove existing alerts
-            const existingAlert = document.querySelector('.alert');
-            if (existingAlert) {
-                existingAlert.remove();
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type}`;
+        alertDiv.textContent = message;
+        alertDiv.style.position = 'fixed';
+        alertDiv.style.top = '20px';
+        alertDiv.style.left = '50%';
+        alertDiv.style.transform = 'translateX(-50%)';
+        alertDiv.style.zIndex = '1001';
+        alertDiv.style.minWidth = '300px';
+        alertDiv.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+        alertDiv.style.textAlign = 'center';
+
+        document.body.appendChild(alertDiv);
+
+        // Auto remove
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
             }
+        }, 3000);
+    }
 
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type}`;
-            alertDiv.textContent = message;
-            alertDiv.style.position = 'fixed';
-            alertDiv.style.top = '20px';
-            alertDiv.style.left = '50%';
-            alertDiv.style.transform = 'translateX(-50%)';
-            alertDiv.style.zIndex = '1001';
-            alertDiv.style.minWidth = '300px';
-            alertDiv.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
-            alertDiv.style.textAlign = 'center';
+    // Load dashboard data
+    async function loadDashboard() {
+        try {
+            const request = await apiRequest('/gemini/dashboard');
+            const accounts = request.data
+            // Update stats
+            document.getElementById('totalAccounts').textContent = accounts.totalAccounts;
+            // const activeAccounts = accounts.filter(acc => !acc.disabled).length;
+            document.getElementById('activeAccounts').textContent = accounts.activeAccounts;
+            // const todayTotal = accounts.reduce((sum, acc) => sum + (acc.today_count || 0), 0);
+            document.getElementById('todayTotal').textContent = accounts.requestFrequency;
 
-            document.body.appendChild(alertDiv);
+            // Update system concurrency (placeholder)
+            document.getElementById('systemConcurrency').textContent = accounts.totalThreads + "/" + accounts.systemThreads;
 
-            // Auto remove
-            setTimeout(() => {
-                if (alertDiv.parentNode) {
-                    alertDiv.remove();
-                }
-            }, 3000);
+            // Update concurrency status
+            updateConcurrencyDisplay(accounts);
+        } catch (error) {
+            console.error('加载仪表盘数据失败:', error);
+            showAlert('加载仪表盘数据失败: ' + error.message, 'danger');
+        }
+    }
+
+    // Update concurrency display
+    function updateConcurrencyDisplay(account) {
+        const container = document.getElementById('concurrencyStatus');
+        const accounts = account.apiList;
+        if (accounts.length === 0) {
+            container.innerHTML = '<p>暂无账号数据</p>';
+            return;
         }
 
-        // Load dashboard data
-        async function loadDashboard() {
-            try {
-                const accounts = await apiRequest('/gemini/accounts');
+        let html = '<div class="grid grid-cols-2">';
+        accounts.forEach(acc => {
+            const current = acc.aliveThread || 0;
+            const max = acc.maxConcurrency || 1;
+            const percentage = max > 0 ? Math.round((current / max) * 100) : 0;
 
-                // Update stats
-                document.getElementById('totalAccounts').textContent = accounts.length;
-                const activeAccounts = accounts.filter(acc => !acc.disabled).length;
-                document.getElementById('activeAccounts').textContent = activeAccounts;
-                const todayTotal = accounts.reduce((sum, acc) => sum + (acc.today_count || 0), 0);
-                document.getElementById('todayTotal').textContent = todayTotal;
-
-                // Update system concurrency (placeholder)
-                document.getElementById('systemConcurrency').textContent = '0/5';
-
-                // Update concurrency status
-                updateConcurrencyDisplay(accounts);
-            } catch (error) {
-                console.error('加载仪表盘数据失败:', error);
-                showAlert('加载仪表盘数据失败: ' + error.message, 'danger');
-            }
-        }
-
-        // Update concurrency display
-        function updateConcurrencyDisplay(accounts) {
-            const container = document.getElementById('concurrencyStatus');
-
-            if (accounts.length === 0) {
-                container.innerHTML = '<p>暂无账号数据</p>';
-                return;
-            }
-
-            let html = '<div class="grid grid-cols-2">';
-            accounts.forEach(acc => {
-                const current = acc.maxConcurrency || 0;
-                const max = acc.maxConcurrency || 1;
-                const percentage = max > 0 ? Math.round((current / max) * 100) : 0;
-
-                html += `
+            html += `
                     <div class="p-3 border border-gray-200 rounded mb-2">
                         <div class="flex justify-between mb-1">
                             <span class="font-medium">${acc.name}</span>
@@ -836,30 +847,30 @@
                         </div>
                     </div>
                 `;
-            });
-            html += '</div>';
+        });
+        html += '</div>';
 
-            container.innerHTML = html;
-        }
+        container.innerHTML = html;
+    }
 
-        // Load accounts
-        async function loadAccounts() {
-            try {
-                // 1. 先获取完整的 API 响应
-                const response = await apiRequest('/gemini/accounts');
+    // Load accounts
+    async function loadAccounts() {
+        try {
+            // 1. 先获取完整的 API 响应
+            const response = await apiRequest('/gemini/accounts');
 
-                // 2. 从响应中提取真正的账号列表 (response.data)
-                const accounts = response.data;// <--将获取到的账号列表存到全局变量中
-                allAccounts = accounts;
-                console.log('Accounts:', accounts)
-                const tbody = document.querySelector('#accountsTable tbody');
+            // 2. 从响应中提取真正的账号列表 (response.data)
+            const accounts = response.data;// <--将获取到的账号列表存到全局变量中
+            allAccounts = accounts;
+            console.log('Accounts:', accounts)
+            const tbody = document.querySelector('#accountsTable tbody');
 
-                if (!accounts || accounts.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">暂无账号，请添加账号</td></tr>';
-                    return;
-                }
+            if (!accounts || accounts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">暂无账号，请添加账号</td></tr>';
+                return;
+            }
 
-                tbody.innerHTML = accounts.map(acc => `
+            tbody.innerHTML = accounts.map(acc => `
             <tr>
                 <td>${acc.id}</td>
                 <td>${acc.name}</td>
@@ -870,7 +881,7 @@
                 </td>
 
                 <!-- 3. 'today_count' 字段在数据中不存在，暂时显示为 0 -->
-                <td>${acc.today_count || 0}</td>
+                <td>${acc.requestFrequency || 0}</td>
 
                 <!-- 4. 修正字段名：将 max_concurrency 改为 maxConcurrency -->
                 <td>${acc.maxConcurrency || 1}</td>
@@ -889,57 +900,57 @@
                 </td>
             </tr>
         `).join('');
-            } catch (error) {
-                console.error('加载账号列表失败:', error);
-                document.querySelector('#accountsTable tbody').innerHTML =
-                    `<tr><td colspan="6" class="text-center text-red-500">加载失败: ${error.message}</td></tr>`;
-                showAlert('加载账号列表失败: ' + error.message, 'danger');
-            }
+        } catch (error) {
+            console.error('加载账号列表失败:', error);
+            document.querySelector('#accountsTable tbody').innerHTML =
+                `<tr><td colspan="6" class="text-center text-red-500">加载失败: ${error.message}</td></tr>`;
+            showAlert('加载账号列表失败: ' + error.message, 'danger');
         }
+    }
 
 
-        // Load characters
-        async function loadCharacters() {
-            const search = document.getElementById('characterSearch').value;
-            const gender = document.getElementById('genderFilter').value;
-            const version = document.getElementById('versionFilter').value;
+    // Load characters
+    async function loadCharacters() {
+        const search = document.getElementById('characterSearch').value;
+        const gender = document.getElementById('genderFilter').value;
+        const version = document.getElementById('versionFilter').value;
 
-            const params = new URLSearchParams();
-            if (search) params.append('search', search);
-            if (gender) params.append('gender', gender);
-            if (version) params.append('version', version);
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        if (gender) params.append('gender', gender);
+        if (version) params.append('version', version);
 
-            try {
-                const response1 = await apiRequest(`/gemini/characters?${params.toString()}`);
-                const response=response1.data;
-                const characters = response.data || [];
-                const tbody = document.querySelector('#charactersTable tbody');
+        try {
+            const response1 = await apiRequest(`/gemini/characters?${params.toString()}`);
+            const response = response1.data;
+            const characters = response.data || [];
+            const tbody = document.querySelector('#charactersTable tbody');
 
-                // Update statistics
-                const stats = response.statistics || { total: 0, gender: { '男': 0, '女': 0, '未知': 0 } };
+            // Update statistics
+            const stats = response.statistics || {total: 0, gender: {'男': 0, '女': 0, '未知': 0}};
 
-                document.getElementById('totalCharacters').textContent = stats.total;
-                document.getElementById('maleCount').textContent = stats.gender.男 || 0;
-                document.getElementById('femaleCount').textContent = stats.gender.女 || 0;
-                document.getElementById('unknownCount').textContent = stats.gender.未知 || 0;
+            document.getElementById('totalCharacters').textContent = stats.total;
+            document.getElementById('maleCount').textContent = stats.gender.男 || 0;
+            document.getElementById('femaleCount').textContent = stats.gender.女 || 0;
+            document.getElementById('unknownCount').textContent = stats.gender.未知 || 0;
 
-                // Update version filter
-                const versionFilter = document.getElementById('versionFilter');
-                if (response.versions && versionFilter.options.length <= 1) {
-                    response.versions.forEach(v => {
-                        const option = document.createElement('option');
-                        option.value = v;
-                        option.textContent = v;
-                        versionFilter.appendChild(option);
-                    });
-                }
+            // Update version filter
+            const versionFilter = document.getElementById('versionFilter');
+            if (response.versions && versionFilter.options.length <= 1) {
+                response.versions.forEach(v => {
+                    const option = document.createElement('option');
+                    option.value = v;
+                    option.textContent = v;
+                    versionFilter.appendChild(option);
+                });
+            }
 
-                if (characters.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">暂无角色数据</td></tr>';
-                    return;
-                }
+            if (characters.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">暂无角色数据</td></tr>';
+                return;
+            }
 
-                tbody.innerHTML = characters.map(char => `
+            tbody.innerHTML = characters.map(char => `
                     <tr>
                         <td><input type="checkbox" class="row-checkbox" data-id="${char.id}"></td>
                         <td>${char.id}</td>
@@ -962,28 +973,28 @@
                     </tr>
                 `).join('');
 
-                attachCheckboxListeners();
+            attachCheckboxListeners();
 
-            } catch (error) {
-                console.error('加载角色数据失败:', error);
-                document.querySelector('#charactersTable tbody').innerHTML =
-                    `<tr><td colspan="6" class="text-center text-red-500">加载失败: ${error.message}</td></tr>`;
-                showAlert('加载角色数据失败: ' + error.message, 'danger');
-            }
+        } catch (error) {
+            console.error('加载角色数据失败:', error);
+            document.querySelector('#charactersTable tbody').innerHTML =
+                `<tr><td colspan="6" class="text-center text-red-500">加载失败: ${error.message}</td></tr>`;
+            showAlert('加载角色数据失败: ' + error.message, 'danger');
         }
+    }
 
-        // Load logs
-        async function loadLogs() {
-            try {
-                const logs = await apiRequest('/gemini/logs?page_size=50');
-                const container = document.getElementById('logsContainer');
+    // Load logs
+    async function loadLogs() {
+        try {
+            const logs = await apiRequest('/gemini/logs?page_size=50');
+            const container = document.getElementById('logsContainer');
 
-                if (logs.length === 0) {
-                    container.innerHTML = '<p class="text-center text-gray-500">暂无操作日志</p>';
-                    return;
-                }
+            if (logs.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-500">暂无操作日志</p>';
+                return;
+            }
 
-                container.innerHTML = logs.map(log => `
+            container.innerHTML = logs.map(log => `
                     <div class="log-item">
                         <span class="log-time">${new Date(log.time).toLocaleString()}</span>
                         <span class="log-account">${log.account}</span>
@@ -995,361 +1006,410 @@
                         </div>
                     </div>
                 `).join('');
-            } catch (error) {
-                console.error('加载日志失败:', error);
-                document.getElementById('logsContainer').innerHTML =
-                    `<p class="text-center text-red-500">加载失败: ${error.message}</p>`;
-            }
+        } catch (error) {
+            console.error('加载日志失败:', error);
+            document.getElementById('logsContainer').innerHTML =
+                `<p class="text-center text-red-500">加载失败: ${error.message}</p>`;
+        }
+    }
+
+    // // Load system config
+    // async function loadSystemConfig() {
+    //     try {
+    //         const config = await apiRequest('/gemini/system_config');
+    //         document.getElementById('systemMaxConcurrency').value = config.system_max_concurrency;
+    //     } catch (error) {
+    //         console.error('加载系统配置失败:', error);
+    //         showAlert('加载系统配置失败: ' + error.message, 'danger');
+    //     }
+    // }
+
+    // Test API query
+    async function testQuery() {
+        const prompt = document.getElementById('promptInput').value.trim();
+        const model = document.getElementById('modelInput').value.trim() || undefined;
+        const queryBtn = document.getElementById('queryBtn');
+        const queryResult = document.getElementById('queryResult');
+        const queryOutput = document.getElementById('queryOutput');
+
+        if (!prompt) {
+            showAlert('请输入提示词内容', 'danger');
+            return;
         }
 
-        // Load system config
-        async function loadSystemConfig() {
-            try {
-                const config = await apiRequest('/gemini/system_config');
-                document.getElementById('systemMaxConcurrency').value = config.system_max_concurrency;
-            } catch (error) {
-                console.error('加载系统配置失败:', error);
-                showAlert('加载系统配置失败: ' + error.message, 'danger');
-            }
+        queryBtn.disabled = true;
+        queryBtn.innerHTML = '<span class="loading"></span> 处理中...';
+        queryResult.classList.add('hidden');
+
+        try {
+            const response = await apiRequest('/gemini/query', {
+                method: 'POST',
+                body: JSON.stringify({prompt, model})
+            });
+
+            queryOutput.value = JSON.stringify(response, null, 2);
+            queryResult.classList.remove('hidden');
+            showAlert('API测试成功');
+        } catch (error) {
+            console.error('API测试失败:', error);
+            queryOutput.value = `错误: ${error.message}`;
+            queryResult.classList.remove('hidden');
+            showAlert('API测试失败: ' + error.message, 'danger');
+        } finally {
+            queryBtn.disabled = false;
+            queryBtn.innerHTML = '<i class="fas fa-paper-plane"></i> 发送测试';
+        }
+    }
+
+    // Add account button
+    document.getElementById('addAccountBtn').addEventListener('click', () => {
+        document.getElementById('modalTitle').textContent = '添加账号';
+        document.getElementById('accountId').value = '';
+        document.getElementById('accountForm').reset();
+        showModal('accountModal');
+    });
+
+
+    // Edit account
+    function editAccount(accId) {
+        // 1. 从已加载的 allAccounts 数组中查找匹配ID的账号
+        const accountToEdit = allAccounts.find(acc => acc.id === accId);
+
+        // 2. 如果没找到，提示错误并返回
+        if (!accountToEdit) {
+            console.error('Account not found with ID:', accId);
+            showAlert('找不到该账号，请刷新页面重试', 'danger');
+            return;
         }
 
-        // Test API query
-        async function testQuery() {
-            const prompt = document.getElementById('promptInput').value.trim();
-            const model = document.getElementById('modelInput').value.trim() || undefined;
-            const queryBtn = document.getElementById('queryBtn');
-            const queryResult = document.getElementById('queryResult');
-            const queryOutput = document.getElementById('queryOutput');
+        // 3. 填充弹窗表单的各个字段
+        document.getElementById('modalTitle').textContent = '编辑账号';
+        document.getElementById('accountId').value = accountToEdit.id;
+        document.getElementById('accountName').value = accountToEdit.name;
+        document.getElementById('accountToken').value = accountToEdit.token;
+        document.getElementById('accountNote').value = accountToEdit.note;
+        document.getElementById('accountInterval').value = accountToEdit.minInterval;
+        // 注意：HTML中的ID是accountConcurrency，而JSON数据字段是maxConcurrency
+        document.getElementById('accountConcurrency').value = accountToEdit.maxConcurrency;
+        // 复选框需要设置 .checked 属性，而不是 .value
+        document.getElementById('accountDisabled').checked = !!accountToEdit.disabled; // 使用 !! 将 0/1 转换为 false/true
 
-            if (!prompt) {
-                showAlert('请输入提示词内容', 'danger');
-                return;
-            }
+        // 4. 显示弹窗
+        showModal('accountModal');
+    }
 
-            queryBtn.disabled = true;
-            queryBtn.innerHTML = '<span class="loading"></span> 处理中...';
-            queryResult.classList.add('hidden');
 
-            try {
-                const response = await apiRequest('/gemini/query', {
-                    method: 'POST',
-                    body: JSON.stringify({ prompt, model })
-                });
+    // Toggle account status
+    async function toggleAccount(accId) {
+        try {
+            await apiRequest(`/gemini/toggle_account/${accId}`, {method: 'POST'});
+            showAlert('账号状态已更新');
+            loadAccounts();
+            loadDashboard();
+        } catch (error) {
+            console.error('更新账号状态失败:', error);
+            showAlert('更新账号状态失败: ' + error.message, 'danger');
+        }
+    }
 
-                queryOutput.value = JSON.stringify(response, null, 2);
-                queryResult.classList.remove('hidden');
-                showAlert('API测试成功');
-            } catch (error) {
-                console.error('API测试失败:', error);
-                queryOutput.value = `错误: ${error.message}`;
-                queryResult.classList.remove('hidden');
-                showAlert('API测试失败: ' + error.message, 'danger');
-            } finally {
-                queryBtn.disabled = false;
-                queryBtn.innerHTML = '<i class="fas fa-paper-plane"></i> 发送测试';
-            }
+    // Delete account
+    async function deleteAccount(accId) {
+        if (!confirm('确定要删除这个账号吗？此操作不可撤销。')) {
+            return;
         }
 
-        // Add account button
-        document.getElementById('addAccountBtn').addEventListener('click', () => {
-            document.getElementById('modalTitle').textContent = '添加账号';
-            document.getElementById('accountId').value = '';
-            document.getElementById('accountForm').reset();
-            showModal('accountModal');
+        try {
+            await apiRequest(`/gemini/accounts/${accId}`, {method: 'DELETE'});
+            showAlert('账号删除成功');
+            loadAccounts();
+            loadDashboard();
+        } catch (error) {
+            console.error('删除账号失败:', error);
+            showAlert('删除账号失败: ' + error.message, 'danger');
+        }
+    }
+
+    // Delete character
+    async function deleteCharacter(characterId) {
+        if (!confirm('确定要删除这个角色吗？此操作不可撤销。')) {
+            return;
+        }
+
+        try {
+            await apiRequest(`/gemini/characters/${characterId}`, {method: 'DELETE'});
+            showAlert('角色删除成功');
+            loadCharacters();
+        } catch (error) {
+            console.error('删除角色失败:', error);
+            showAlert('删除角色失败: ' + error.message, 'danger');
+        }
+    }
+
+    // Batch delete characters
+    async function batchDeleteCharacters() {
+        const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked'))
+            .map(cb => parseInt(cb.dataset.id));
+
+        if (selectedIds.length === 0) {
+            showAlert('请先选择要删除的角色', 'danger');
+            return;
+        }
+
+        if (!confirm(`确定要删除选中的 ${selectedIds.length} 个角色吗？此操作不可撤销。`)) {
+            return;
+        }
+
+        try {
+            await apiRequest('/gemini/characters/batch_delete', {
+                method: 'POST',
+                body: JSON.stringify({ids: selectedIds})
+            });
+            showAlert('批量删除成功');
+            loadCharacters();
+        } catch (error) {
+            console.error('批量删除失败:', error);
+            showAlert('批量删除失败: ' + error.message, 'danger');
+        }
+    }
+
+    // Change character gender
+    async function changeGender(characterId, currentGender, direction) {
+        const genders = ['男', '未知', '女'];
+        let currentIndex = genders.indexOf(currentGender);
+
+        if (direction === 'next') {
+            currentIndex = (currentIndex + 1) % genders.length;
+        } else {
+            currentIndex = (currentIndex - 1 + genders.length) % genders.length;
+        }
+        const newGender = genders[currentIndex];
+
+        try {
+            await apiRequest(`/gemini/characters/${characterId}`, {
+                method: 'PUT',
+                body: JSON.stringify({gender: newGender})
+            });
+            showAlert('性别更新成功');
+            loadCharacters();
+        } catch (error) {
+            console.error('更新性别失败:', error);
+            showAlert('更新性别失败: ' + error.message, 'danger');
+        }
+    }
+
+    // Checkbox listeners
+    function attachCheckboxListeners() {
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+        const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+
+        selectAllCheckbox.addEventListener('change', (e) => {
+            rowCheckboxes.forEach(cb => {
+                cb.checked = e.target.checked;
+            });
+            toggleBatchDeleteButton();
         });
 
-
-
-        // Edit account
-        function editAccount(accId) {
-            // 1. 从已加载的 allAccounts 数组中查找匹配ID的账号
-            const accountToEdit = allAccounts.find(acc => acc.id === accId);
-
-            // 2. 如果没找到，提示错误并返回
-            if (!accountToEdit) {
-                console.error('Account not found with ID:', accId);
-                showAlert('找不到该账号，请刷新页面重试', 'danger');
-                return;
-            }
-
-            // 3. 填充弹窗表单的各个字段
-            document.getElementById('modalTitle').textContent = '编辑账号';
-            document.getElementById('accountId').value = accountToEdit.id;
-            document.getElementById('accountName').value = accountToEdit.name;
-            document.getElementById('accountToken').value = accountToEdit.token;
-            document.getElementById('accountNote').value = accountToEdit.note;
-            document.getElementById('accountInterval').value = accountToEdit.minInterval;
-            // 注意：HTML中的ID是accountConcurrency，而JSON数据字段是maxConcurrency
-            document.getElementById('accountConcurrency').value = accountToEdit.maxConcurrency;
-            // 复选框需要设置 .checked 属性，而不是 .value
-            document.getElementById('accountDisabled').checked = !!accountToEdit.disabled; // 使用 !! 将 0/1 转换为 false/true
-
-            // 4. 显示弹窗
-            showModal('accountModal');
-        }
-
-
-        // Toggle account status
-        async function toggleAccount(accId) {
-            try {
-                await apiRequest(`/gemini/toggle_account/${accId}`, { method: 'POST' });
-                showAlert('账号状态已更新');
-                loadAccounts();
-                loadDashboard();
-            } catch (error) {
-                console.error('更新账号状态失败:', error);
-                showAlert('更新账号状态失败: ' + error.message, 'danger');
-            }
-        }
-
-        // Delete account
-        async function deleteAccount(accId) {
-            if (!confirm('确定要删除这个账号吗？此操作不可撤销。')) {
-                return;
-            }
-
-            try {
-                await apiRequest(`/gemini/accounts/${accId}`, { method: 'DELETE' });
-                showAlert('账号删除成功');
-                loadAccounts();
-                loadDashboard();
-            } catch (error) {
-                console.error('删除账号失败:', error);
-                showAlert('删除账号失败: ' + error.message, 'danger');
-            }
-        }
-
-        // Delete character
-        async function deleteCharacter(characterId) {
-            if (!confirm('确定要删除这个角色吗？此操作不可撤销。')) {
-                return;
-            }
-
-            try {
-                await apiRequest(`/gemini/characters/${characterId}`, { method: 'DELETE' });
-                showAlert('角色删除成功');
-                loadCharacters();
-            } catch (error) {
-                console.error('删除角色失败:', error);
-                showAlert('删除角色失败: ' + error.message, 'danger');
-            }
-        }
-
-        // Batch delete characters
-        async function batchDeleteCharacters() {
-            const selectedIds = Array.from(document.querySelectorAll('.row-checkbox:checked'))
-                                     .map(cb => parseInt(cb.dataset.id));
-
-            if (selectedIds.length === 0) {
-                showAlert('请先选择要删除的角色', 'danger');
-                return;
-            }
-
-            if (!confirm(`确定要删除选中的 ${selectedIds.length} 个角色吗？此操作不可撤销。`)) {
-                return;
-            }
-
-            try {
-                await apiRequest('/gemini/characters/batch_delete', {
-                    method: 'POST',
-                    body: JSON.stringify({ ids: selectedIds })
-                });
-                showAlert('批量删除成功');
-                loadCharacters();
-            } catch (error) {
-                console.error('批量删除失败:', error);
-                showAlert('批量删除失败: ' + error.message, 'danger');
-            }
-        }
-
-        // Change character gender
-        async function changeGender(characterId, currentGender, direction) {
-            const genders = ['男', '未知', '女'];
-            let currentIndex = genders.indexOf(currentGender);
-
-            if (direction === 'next') {
-                currentIndex = (currentIndex + 1) % genders.length;
-            } else {
-                currentIndex = (currentIndex - 1 + genders.length) % genders.length;
-            }
-            const newGender = genders[currentIndex];
-
-            try {
-                await apiRequest(`/gemini/characters/${characterId}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ gender: newGender })
-                });
-                showAlert('性别更新成功');
-                loadCharacters();
-            } catch (error) {
-                console.error('更新性别失败:', error);
-                showAlert('更新性别失败: ' + error.message, 'danger');
-            }
-        }
-
-        // Checkbox listeners
-        function attachCheckboxListeners() {
-            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-            const rowCheckboxes = document.querySelectorAll('.row-checkbox');
-            const batchDeleteBtn = document.getElementById('batchDeleteBtn');
-
-            selectAllCheckbox.addEventListener('change', (e) => {
-                rowCheckboxes.forEach(cb => {
-                    cb.checked = e.target.checked;
-                });
+        rowCheckboxes.forEach(cb => {
+            cb.addEventListener('change', () => {
+                if (!cb.checked) {
+                    selectAllCheckbox.checked = false;
+                } else {
+                    if (Array.from(rowCheckboxes).every(i => i.checked)) {
+                        selectAllCheckbox.checked = true;
+                    }
+                }
                 toggleBatchDeleteButton();
             });
-
-            rowCheckboxes.forEach(cb => {
-                cb.addEventListener('change', () => {
-                    if (!cb.checked) {
-                        selectAllCheckbox.checked = false;
-                    } else {
-                        if (Array.from(rowCheckboxes).every(i => i.checked)) {
-                            selectAllCheckbox.checked = true;
-                        }
-                    }
-                    toggleBatchDeleteButton();
-                });
-            });
-        }
-
-        function toggleBatchDeleteButton() {
-            const anyChecked = Array.from(document.querySelectorAll('.row-checkbox')).some(cb => cb.checked);
-            document.getElementById('batchDeleteBtn').style.display = anyChecked ? 'inline-flex' : 'none';
-        }
-
-
-        // Save account
-        document.getElementById('saveAccountBtn').addEventListener('click', async () => {
-            const accountId = document.getElementById('accountId').value;
-            const formData = {
-                name: document.getElementById('accountName').value,
-                token: document.getElementById('accountToken').value,
-                note: document.getElementById('accountNote').value,
-                minInterval: parseFloat(document.getElementById('accountInterval').value),
-                maxConcurrency: parseInt(document.getElementById('accountConcurrency').value),
-                disabled: document.getElementById('accountDisabled').checked ? 1 : 0
-            };
-
-            console.log(formData)
-            try {
-                if (accountId) {
-                    // Update existing account
-                    await apiRequest(`/gemini/accounts/${accountId}`, {
-                        method: 'PUT',
-                        body: JSON.stringify(formData)
-                    });
-                } else {
-                    // Create new account
-                    await apiRequest('/gemini/accounts', {
-                        method: 'POST',
-                        body: JSON.stringify(formData)
-                    });
-                }
-
-                showAlert('账号保存成功');
-                hideModal('accountModal');
-                loadAccounts();
-                loadDashboard();
-            } catch (error) {
-                console.error('保存账号失败:', error);
-                showAlert('保存账号失败: ' + error.message, 'danger');
-            }
         });
+    }
 
-        // Import characters
-        document.getElementById('importCharacterBtn').addEventListener('click', () => {
-            document.getElementById('importCharacterForm').reset();
-            showModal('importCharacterModal');
-        });
+    function toggleBatchDeleteButton() {
+        const anyChecked = Array.from(document.querySelectorAll('.row-checkbox')).some(cb => cb.checked);
+        document.getElementById('batchDeleteBtn').style.display = anyChecked ? 'inline-flex' : 'none';
+    }
 
-        // Submit character import
-        document.getElementById('importCharacterSubmitBtn').addEventListener('click', async () => {
-            const apiUrl = document.getElementById('apiUrl').value;
-            const version = document.getElementById('version').value;
 
-            if (!apiUrl) {
-                showAlert('请输入API地址', 'danger');
-                return;
-            }
+    // Save account
+    document.getElementById('saveAccountBtn').addEventListener('click', async () => {
+        const accountId = document.getElementById('accountId').value;
+        const formData = {
+            name: document.getElementById('accountName').value,
+            token: document.getElementById('accountToken').value,
+            note: document.getElementById('accountNote').value,
+            minInterval: parseFloat(document.getElementById('accountInterval').value),
+            maxConcurrency: parseInt(document.getElementById('accountConcurrency').value),
+            disabled: document.getElementById('accountDisabled').checked ? 1 : 0
+        };
 
-            try {
-                const response = await apiRequest('/gemini/characters/import', {
-                    method: 'POST',
-                    body: JSON.stringify({ apiUrl: apiUrl, version: version })
-                });
-
-                showAlert(`导入成功！导入了 ${response.data} 个角色`);
-                hideModal('importCharacterModal');
-                loadCharacters();
-            } catch (error) {
-                console.error('导入角色失败:', error);
-                showAlert('导入角色失败: ' + error.message, 'danger');
-            }
-        });
-
-        // Save system config
-        document.getElementById('saveConfigBtn').addEventListener('click', async () => {
-            const maxConcurrency = parseInt(document.getElementById('systemMaxConcurrency').value);
-
-            if (maxConcurrency < 1 || maxConcurrency > 50) {
-                showAlert('系统最大并发数必须在1-50之间', 'danger');
-                return;
-            }
-
-            try {
-                await apiRequest('/gemini/system_config', {
+        console.log(formData)
+        try {
+            if (accountId) {
+                // Update existing account
+                await apiRequest(`/gemini/accounts/${accountId}`, {
                     method: 'PUT',
-                    body: JSON.stringify({ system_max_concurrency: maxConcurrency })
+                    body: JSON.stringify(formData)
                 });
-
-                showAlert('系统配置已更新');
-                loadDashboard();
-            } catch (error) {
-                console.error('更新系统配置失败:', error);
-                showAlert('更新系统配置失败: ' + error.message, 'danger');
+            } else {
+                // Create new account
+                await apiRequest('/gemini/accounts', {
+                    method: 'POST',
+                    body: JSON.stringify(formData)
+                });
             }
-        });
 
-        // Event listeners
-        document.getElementById('queryBtn').addEventListener('click', testQuery);
-        document.getElementById('cancelAccountBtn').addEventListener('click', () => hideModal('accountModal'));
-        document.getElementById('cancelImportBtn').addEventListener('click', () => hideModal('importCharacterModal'));
-        document.getElementById('batchDeleteBtn').addEventListener('click', batchDeleteCharacters);
-
-        // Character filter listeners
-        document.getElementById('characterSearch').addEventListener('input', () => loadCharacters());
-        document.getElementById('genderFilter').addEventListener('change', () => loadCharacters());
-        document.getElementById('versionFilter').addEventListener('change', () => loadCharacters());
-
-        // Initialize data
-        document.addEventListener('DOMContentLoaded', () => {
-            loadDashboard();
+            showAlert('账号保存成功');
+            hideModal('accountModal');
             loadAccounts();
-            loadCharacters();
-            loadLogs();
-            loadSystemConfig();
+            loadDashboard();
+        } catch (error) {
+            console.error('保存账号失败:', error);
+            showAlert('保存账号失败: ' + error.message, 'danger');
+        }
+    });
 
-            // Refresh data every 30 seconds
-            setInterval(() => {
-                const activeTab = document.querySelector('.tab.active').getAttribute('data-tab');
-                switch (activeTab) {
-                    case 'dashboard':
-                        loadDashboard();
-                        break;
-                    case 'accounts':
-                        loadAccounts();
-                        break;
-                    case 'characters':
-                        loadCharacters();
-                        break;
-                    case 'logs':
-                        loadLogs();
-                        break;
-                }
-            }, 30000);
-        });
-    </script>
+    // Import characters
+    document.getElementById('importCharacterBtn').addEventListener('click', () => {
+        document.getElementById('importCharacterForm').reset();
+        showModal('importCharacterModal');
+    });
+
+    // Submit character import
+    document.getElementById('importCharacterSubmitBtn').addEventListener('click', async () => {
+        const apiUrl = document.getElementById('apiUrl').value;
+        const version = document.getElementById('version').value;
+
+        if (!apiUrl) {
+            showAlert('请输入API地址', 'danger');
+            return;
+        }
+
+        try {
+            const response = await apiRequest('/gemini/characters/import', {
+                method: 'POST',
+                body: JSON.stringify({apiUrl: apiUrl, version: version})
+            });
+
+            showAlert(`导入成功！导入了 ${response.data} 个角色`);
+            hideModal('importCharacterModal');
+            loadCharacters();
+        } catch (error) {
+            console.error('导入角色失败:', error);
+            showAlert('导入角色失败: ' + error.message, 'danger');
+        }
+    });
+
+    // // Save system config
+    // document.getElementById('saveConfigBtn').addEventListener('click', async () => {
+    //     const maxConcurrency = parseInt(document.getElementById('systemMaxConcurrency').value);
+    //
+    //     if (maxConcurrency < 1 || maxConcurrency > 50) {
+    //         showAlert('系统最大并发数必须在1-50之间', 'danger');
+    //         return;
+    //     }
+    //
+    //     try {
+    //         await apiRequest('/gemini/system_config', {
+    //             method: 'PUT',
+    //             body: JSON.stringify({system_max_concurrency: maxConcurrency})
+    //         });
+    //
+    //         showAlert('系统配置已更新');
+    //         loadDashboard();
+    //     } catch (error) {
+    //         console.error('更新系统配置失败:', error);
+    //         showAlert('更新系统配置失败: ' + error.message, 'danger');
+    //     }
+    // });
+
+    // Event listeners
+    document.getElementById('queryBtn').addEventListener('click', testQuery);
+    document.getElementById('cancelAccountBtn').addEventListener('click', () => hideModal('accountModal'));
+    document.getElementById('cancelImportBtn').addEventListener('click', () => hideModal('importCharacterModal'));
+    document.getElementById('batchDeleteBtn').addEventListener('click', batchDeleteCharacters);
+
+    // Character filter listeners
+    document.getElementById('characterSearch').addEventListener('input', () => loadCharacters());
+    document.getElementById('genderFilter').addEventListener('change', () => loadCharacters());
+    document.getElementById('versionFilter').addEventListener('change', () => loadCharacters());
+
+    // Initialize data
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDashboard();
+        loadAccounts();
+        loadCharacters();
+        loadLogs();
+        loadSystemConfig();
+
+        // Refresh data every 30 seconds
+        setInterval(() => {
+            const activeTab = document.querySelector('.tab.active').getAttribute('data-tab');
+            switch (activeTab) {
+                case 'dashboard':
+                    loadDashboard();
+                    break;
+                case 'accounts':
+                    loadAccounts();
+                    break;
+                case 'characters':
+                    loadCharacters();
+                    break;
+                case 'logs':
+                    loadLogs();
+                    break;
+            }
+        }, 30000);
+    });
+    const logsDiv = document.getElementById('logs');
+
+    /**
+     * 追加一行日志（带自动滚动优化）
+     * 如果用户当前滚动条在底部，则自动滚动；
+     * 否则（正在查看旧日志），保持当前位置。
+     */
+    function appendLine(line) {
+        // 判断用户是否在底部（容差5px）
+        const atBottom = logsDiv.scrollTop + logsDiv.clientHeight >= logsDiv.scrollHeight - 5;
+
+        // 添加日志行
+        logsDiv.textContent += line + "\n";
+
+        // 如果用户原本在底部，则继续自动滚动
+        if (atBottom) {
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+    }
+
+    // 请求最近历史日志
+    fetch('/gemini/logs/recent').then(res => res.json()).then(arr => {
+        logsDiv.textContent = '';
+        arr.forEach(l => appendLine(l));
+        connectWs();
+    }).catch(err => {
+        logsDiv.textContent = '无法获取历史日志，尝试直接连接 WebSocket...\n';
+        connectWs();
+    });
+
+    // 连接 WebSocket
+    function connectWs() {
+        const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+        const url = `${protocol}://${location.host}/ws/logs`;
+        const ws = new WebSocket(url);
+
+        ws.onopen = () => {
+            appendLine('WebSocket 已连接');
+        };
+        ws.onmessage = (ev) => {
+            appendLine(ev.data);
+        };
+        ws.onclose = () => {
+            appendLine('WebSocket 已断开，5 秒后重连...');
+            setTimeout(connectWs, 5000);
+        };
+        ws.onerror = (e) => {
+            console.error('WebSocket error', e);
+        };
+    }
+</script>
 </body>
 </html>

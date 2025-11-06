@@ -4,11 +4,14 @@ package novel.tts.novel_tts.controller;
 import lombok.extern.slf4j.Slf4j;
 import novel.tts.novel_tts.common.Result;
 import novel.tts.novel_tts.pojo.Api;
+import novel.tts.novel_tts.pojo.Dashboard;
 import novel.tts.novel_tts.service.GeminiService;
+import novel.tts.novel_tts.util.GeminiConcurrentProcessor;
 import org.apache.ibatis.annotations.Delete;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -17,7 +20,8 @@ import java.util.List;
 public class Gemini {
     @Autowired
     private GeminiService geminiService;
-
+    @Autowired
+    private GeminiConcurrentProcessor geminiProcessor;
     //插入api
     @PostMapping("/accounts")
     public Result<Api> creatapi(@RequestBody Api api){
@@ -58,5 +62,16 @@ public class Gemini {
         geminiService.updateStatus(id);
         log.info("更新api状态成功");
         return Result.success();
+    }
+
+    @GetMapping
+    public Result<String> get() throws IOException, InterruptedException {
+        geminiProcessor.process("input1.txt", "output1.txt", "gemini-2.5-flash");
+        return Result.success("gemini");
+    }
+    @GetMapping("/dashboard")
+    public Result<Dashboard> getSystemConfig() {
+        log.info("获取系统配置");
+        return Result.success(geminiService.getSystemConfig());
     }
 }

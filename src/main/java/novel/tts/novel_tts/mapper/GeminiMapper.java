@@ -2,6 +2,7 @@ package novel.tts.novel_tts.mapper;
 
 
 import novel.tts.novel_tts.pojo.Api;
+import novel.tts.novel_tts.pojo.DashboardApi;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
@@ -34,5 +35,29 @@ public interface GeminiMapper {
     //删除api
     @Delete("DELETE FROM api_token WHERE id=#{id}")
     void deleteApi(Integer id);
+
+    //获取api总数
+    @Select("SELECT COUNT(*) FROM api_token")
+    int getTotalAccounts();
+
+    //获取活跃api总数
+    @Select("SELECT COUNT(*) FROM api_token WHERE disabled=0")
+    int getActiveAccounts();
+
+    //获取api请求频率
+    @Select("SELECT IFNULL(SUM(request_frequency), 0) FROM api_token")
+    int getRequestFrequency();
+
+    //获取系统线程数
+    @Select("SELECT IFNULL(SUM(max_concurrency), 0) FROM api_token")
+    int getSystemThreads();
+
+    //获取最大线程数
+    @Select("SELECT IFNULL(SUM(alive_thread), 0) FROM api_token")
+    int getMaxConcurrency();
+
+    //获取api
+    @Select("SELECT name,max_concurrency,alive_thread FROM api_token")
+    List<DashboardApi> getDashboardApi();
 }
 
