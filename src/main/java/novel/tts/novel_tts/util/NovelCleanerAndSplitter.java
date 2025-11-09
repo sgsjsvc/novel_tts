@@ -32,11 +32,6 @@ public class NovelCleanerAndSplitter {
     private static final Pattern INVALID_LINE_PATTERN =
             Pattern.compile("^[\\p{Punct}·。？！——…、；：‘’“”\\s　]+$");
 
-//    public static void main(String[] args) {
-//        String inputFile = "input.txt";   // 输入小说文本路径
-//        String outputDir = "output/";     // 输出目录
-//        processNovel(inputFile, outputDir);
-//    }
 
     /**
      * 主流程：清洗 + 分章节

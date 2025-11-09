@@ -16,7 +16,9 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -45,7 +47,10 @@ public class GeminiConcurrentProcessor {
     // 临时目录
     @Value("${gemini.GeminiConcurrentProcessor.concurrent.tempDir:temp/temp}")
     private String tempDir;
-
+    @Value("${gemini.GeminiConcurrentProcessor.concurrent.geminiTxt:temp/output/geminiTxt/}")
+    private String geminiTxt;
+    @Value("${gemini.GeminiConcurrentProcessor.concurrent.geminiInput:temp/output/txt/}")
+    private String geminiInput;
     // 当前正在请求的线程数
     private final AtomicInteger activeRequestCount = new AtomicInteger(0);
     // HTTP 客户端
@@ -58,13 +63,19 @@ public class GeminiConcurrentProcessor {
     private DbFieldUpdater dbFieldUpdater;
 
 
-    public void process(String inputFile, String outputFile, String model) throws IOException, InterruptedException {
+    public void process(String input, String output, String model) throws IOException, InterruptedException {
+        // 输入文件
+        String inputFile = geminiInput + "/" + input + ".txt";
+        log.info("输入文件:{}", inputFile);
+        // 输出文件
+        String outputFile = geminiTxt + "/" + output + ".txt";
+        log.info("输出文件:{}", outputFile);
         //gemini api url构建
         String GEMINI_URL = URL + "/v1beta/models/" + model + ":generateContent";
         log.info("Gemini API URL:{}", GEMINI_URL);
         // 创建临时目录
         Files.createDirectories(Paths.get(tempDir));
-        log.info("临时目录创建:{}", GEMINI_URL);
+        log.info("临时目录创建:{}", Files.createDirectories(Paths.get(tempDir)));
         // 读取输入文件
         List<String> allLines = Files.readAllLines(Paths.get(inputFile));
         log.info("输入文件行数：{}", allLines.size());
@@ -74,7 +85,7 @@ public class GeminiConcurrentProcessor {
 
         // 流程2：并发处理所有段落
         List<String> tempFiles = processConcurrently(segments, tempDir, GEMINI_URL);
-
+        log.info("临时文件路径{}", tempFiles);
         // 流程3：合并临时文件
         mergeSegmentFiles(tempFiles, outputFile);
         log.info("处理完成，生成文件：{}", outputFile);
@@ -153,7 +164,7 @@ public class GeminiConcurrentProcessor {
                     log.info("当前正在请求的线程数：{}", getActiveRequestCount());
 
                     // 调用 Gemini API
-                    String result = callGeminiApi(text, GEMINI_URL,API_KEY);
+                    String result = callGeminiApi(text, GEMINI_URL, API_KEY);
                     log.info("段落 {} 处理完成，长度：{}", index, result.length());
                     //MYSQL线程数记录-1
                     dbFieldUpdater.updateField("api_token", "alive_thread", -1, "token", API_KEY);
@@ -209,77 +220,100 @@ public class GeminiConcurrentProcessor {
      * @param tempFiles  临时文件路径列表
      * @param outputFile 输出文件路径
      */
-    private void mergeSegmentFiles(List<String> tempFiles, String outputFile) throws IOException {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))) {
-            // 使用全局去重集合，记录所有已写入的内容
-            Set<String> globalWrittenLines = new LinkedHashSet<>();
-
-            for (int i = 0; i < tempFiles.size(); i++) {
-                String tempFile = tempFiles.get(i);
-                List<String> lines = Files.readAllLines(Paths.get(tempFile));
-                log.info("合并段落 {}，原始行数：{}", i, lines.size());
-
-                int skipCount = 0;
-                int writeCount = 0;
-
-                List<String> linesToProcess;
-
-                if (i == 0) {
-                    // 第一段：删除最后5行（这些行会在第二段中重复出现）
-                    int endIndex = Math.max(0, lines.size() - OVERLAP_KEEP);
-                    linesToProcess = lines.subList(0, endIndex);
-                    log.info("第一段：保留前 " + endIndex + " 行，删除最后 " + OVERLAP_KEEP + " 行");
-                } else if (i == tempFiles.size() - 1) {
-                    // 最后一段：删除前5行（与上一段重叠），保留后面所有内容
-                    int startIndex = Math.min(OVERLAP_KEEP, lines.size());
-                    linesToProcess = lines.subList(startIndex, lines.size());
-                    log.info("最后段：删除前 " + OVERLAP_KEEP + " 行，保留后 " + (lines.size() - startIndex) + " 行");
-                } else {
-                    // 中间段落：删除前5行和最后5行
-                    int startIndex = Math.min(OVERLAP_KEEP, lines.size());
-                    int endIndex = Math.max(startIndex, lines.size() - OVERLAP_KEEP);
-                    linesToProcess = lines.subList(startIndex, endIndex);
-                    log.info("中间段落：删除前 " + startIndex + " 行和最后 " + (lines.size() - endIndex) + " 行，保留 " + (endIndex - startIndex) + " 行");
-                }
-
-                // 处理去重并写入
-                for (String line : linesToProcess) {
-                    // 跳过空行
-                    if (line.trim().isEmpty()) {
-                        continue;
-                    }
-
-                    // 归一化处理
-                    String normalizedLine = normalizeLine(line);
-
-                    // 检查是否重复
-                    if (globalWrittenLines.contains(normalizedLine)) {
-                        skipCount++;
-                        continue;
-                    }
-
-                    // 写入新内容
-                    writer.write(line);
-                    writer.newLine();
-                    globalWrittenLines.add(normalizedLine);
-                    writeCount++;
-
-                    // 限制globalWrittenLines大小，避免内存占用过大
-                    if (globalWrittenLines.size() > 200) {
-                        Iterator<String> iterator = globalWrittenLines.iterator();
-                        for (int j = 0; j < 100 && iterator.hasNext(); j++) {
-                            iterator.next();
-                            iterator.remove();
-                        }
-                    }
-                }
-
-                log.info("段落 {} - 跳过重复: {} 行，实际写入: {} 行", i, skipCount, writeCount);
+    private void mergeSegmentFiles(List<String> tempFiles, String outputFile) {
+        log.info("开始合并临时文件：{}", tempFiles);
+        try {
+            // ✅ 自动创建输出目录
+            Path outputPath = Paths.get(outputFile);
+            Path parentDir = outputPath.getParent();
+            if (parentDir != null && !Files.exists(parentDir)) {
+                Files.createDirectories(parentDir);
+                log.info("已创建输出目录：{}", parentDir.toAbsolutePath());
             }
-        }
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))) {
 
-        log.info("合并完成，生成文件：{}", outputFile);
+                Set<String> globalWrittenLines = new LinkedHashSet<>();
+                log.info("初始化全局去重集合成功");
+
+                for (int i = 0; i < tempFiles.size(); i++) {
+                    String tempFile = tempFiles.get(i);
+                    log.info("==== 开始处理第 {} 个临时文件：{} ====", i, tempFile);
+
+                    Path path = Paths.get(tempFile);
+
+                    // 安全检查：文件是否存在
+                    if (!Files.exists(path)) {
+                        log.warn("跳过：文件不存在 -> {}", path.toAbsolutePath());
+                        continue;
+                    }
+
+                    // 强制指定 UTF-8，防止卡住
+                    List<String> lines;
+                    try {
+                        lines = Files.readAllLines(path, StandardCharsets.UTF_8);
+                    } catch (Exception e) {
+                        log.error("读取文件失败：{}", tempFile, e);
+                        continue;
+                    }
+
+                    log.info("读取成功，共 {} 行", lines.size());
+
+                    List<String> linesToProcess;
+                    int skipCount = 0, writeCount = 0;
+
+                    if (i == 0) {
+                        int endIndex = Math.max(0, lines.size() - OVERLAP_KEEP);
+                        linesToProcess = lines.subList(0, endIndex);
+                        log.info("第一段：保留 {} 行，删除末尾 {} 行", endIndex, OVERLAP_KEEP);
+                    } else if (i == tempFiles.size() - 1) {
+                        int startIndex = Math.min(OVERLAP_KEEP, lines.size());
+                        linesToProcess = lines.subList(startIndex, lines.size());
+                        log.info("最后一段：删除前 {} 行，保留 {} 行", startIndex, lines.size() - startIndex);
+                    } else {
+                        int startIndex = Math.min(OVERLAP_KEEP, lines.size());
+                        int endIndex = Math.max(startIndex, lines.size() - OVERLAP_KEEP);
+                        linesToProcess = lines.subList(startIndex, endIndex);
+                        log.info("中间段：删除前 {} 行与后 {} 行，保留 {} 行", startIndex, lines.size() - endIndex, endIndex - startIndex);
+                    }
+
+                    for (String line : linesToProcess) {
+                        if (line.trim().isEmpty()) continue;
+                        String normalizedLine = normalizeLine(line);
+                        if (globalWrittenLines.contains(normalizedLine)) {
+                            skipCount++;
+                            continue;
+                        }
+                        writer.write(line);
+                        writer.newLine();
+                        globalWrittenLines.add(normalizedLine);
+
+                        // 控制内存
+                        if (globalWrittenLines.size() > 500) {
+                            Iterator<String> iterator = globalWrittenLines.iterator();
+                            for (int j = 0; j < 200 && iterator.hasNext(); j++) {
+                                iterator.next();
+                                iterator.remove();
+                            }
+                        }
+                        writeCount++;
+                    }
+
+                    log.info("第 {} 段合并完成，跳过重复 {} 行，写入 {} 行", i, skipCount, writeCount);
+                }
+
+                writer.flush();
+                log.info("写入完毕，输出文件：{}", outputFile);
+
+            } catch (Exception e) {
+                log.error("合并过程中出现异常：{}", e.getMessage(), e);
+            }
+
+            log.info("mergeSegmentFiles() 方法执行完毕 ✅");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
+
 
     /**
      * 归一化行内容，用于更准确的去重比较
@@ -316,7 +350,8 @@ public class GeminiConcurrentProcessor {
      * @param text 输入文本
      * @return 转换后的文本
      */
-    private String callGeminiApi(String text, String GEMINI_URL, String API_KEY) throws IOException, InterruptedException {
+    private String callGeminiApi(String text, String GEMINI_URL, String API_KEY) throws
+            IOException, InterruptedException {
         // 加入提示词
         String prompt = """
                 你是小说文本处理助手，所有的回答必须使用中文。 \s
@@ -393,12 +428,11 @@ public class GeminiConcurrentProcessor {
         String requestBody = buildRequestBody(fullText);
 
         // 发送HTTP请求
-        HttpResponse<String> response = sendHttpRequest(requestBody, GEMINI_URL,API_KEY);
+        HttpResponse<String> response = sendHttpRequest(requestBody, GEMINI_URL, API_KEY);
 
         // 解析响应
         return parseResponse(response);
     }
-
 
 
     /**
@@ -438,7 +472,7 @@ public class GeminiConcurrentProcessor {
      * @param requestBody 请求体内容
      * @return HTTP 响应
      */
-    private HttpResponse<String> sendHttpRequest(String requestBody, String GEMINI_URL,String API_KEY)
+    private HttpResponse<String> sendHttpRequest(String requestBody, String GEMINI_URL, String API_KEY)
             throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(GEMINI_URL))
