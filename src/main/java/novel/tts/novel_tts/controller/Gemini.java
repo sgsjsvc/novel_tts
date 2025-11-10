@@ -64,11 +64,6 @@ public class Gemini {
         return Result.success();
     }
 
-    @GetMapping
-    public Result<String> get() throws IOException, InterruptedException {
-        geminiProcessor.process("input1.txt", "output1.txt", "gemini-2.5-flash");
-        return Result.success("gemini");
-    }
     @GetMapping("/dashboard")
     public Result<Dashboard> getSystemConfig() {
         log.info("获取系统配置");

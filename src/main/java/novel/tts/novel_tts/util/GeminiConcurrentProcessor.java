@@ -2,7 +2,9 @@ package novel.tts.novel_tts.util;
 
 
 import lombok.extern.slf4j.Slf4j;
+import novel.tts.novel_tts.mapper.PersonMapper;
 import novel.tts.novel_tts.mapper.UtilMapper;
+import novel.tts.novel_tts.service.ipml.PersonServiceImpl;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,14 +64,26 @@ public class GeminiConcurrentProcessor {
     @Autowired
     private DbFieldUpdater dbFieldUpdater;
 
+    @Autowired
+    private PersonServiceImpl personService;
 
-    public void process(String input, String output, String model) throws IOException, InterruptedException {
+    @Autowired
+    private GetTableName getTableName;
+    @Autowired
+    private PersonMapper personMapper;
+    @Autowired
+    private DialogueProcessor dialogueProcessor;
+
+    public void process(String input, String output, String model, String modelVersion) throws IOException, InterruptedException {
         // 输入文件
         String inputFile = geminiInput + "/" + input + ".txt";
         log.info("输入文件:{}", inputFile);
         // 输出文件
         String outputFile = geminiTxt + "/" + output + ".txt";
         log.info("输出文件:{}", outputFile);
+        // 输入文件所在目录
+        String folderName = input.substring(0, input.lastIndexOf("/"));
+        log.info("输入文件所在目录:{}", folderName);
         //gemini api url构建
         String GEMINI_URL = URL + "/v1beta/models/" + model + ":generateContent";
         log.info("Gemini API URL:{}", GEMINI_URL);
@@ -88,7 +102,28 @@ public class GeminiConcurrentProcessor {
         log.info("临时文件路径{}", tempFiles);
         // 流程3：合并临时文件
         mergeSegmentFiles(tempFiles, outputFile);
-        log.info("处理完成，生成文件：{}", outputFile);
+        log.info("合并临时文件完成，生成文件：{}", outputFile);
+        // 流程4：表名生成
+
+        String tableName =personMapper.getTableName(folderName);
+        if (tableName == null){
+            tableName= getTableName.TableName(folderName);
+            log.info("表名生成成功：{}", tableName);
+            // 自动创建表
+            personMapper.createTableIfNotExists(tableName);
+            log.info("✅ 已确认表存在：{}", tableName);
+
+            personMapper.insertNovelTable(folderName,tableName);
+            log.info("表名插入数据库完成:{}，{}",folderName,tableName);
+        }else {
+            log.info("表名已存在：{}", tableName);
+        }
+
+        personService.processFile(outputFile, tableName,modelVersion);
+        log.info("角色分配完成");
+
+        dialogueProcessor.processFile(outputFile,tableName,input);
+
     }
 
     /**

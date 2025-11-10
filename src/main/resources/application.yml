@@ -44,3 +44,7 @@ reset:
 #      condition: "WHERE completed=0"# 可为空
 so-novel:
   novelPath: "" # 路径
+emotion:
+  infer:
+    url: http://127.0.0.1:8000/infer_single   # 推理接口地址
+    model: "花火"                            # 默认模型名

@@ -25,7 +25,6 @@ public class NovelTtsServiceIpml implements NovelTtsService {
 
     @Override
     public List<Folder> getChapterList(String novelName) {
-
         return novelTtsMapper.getChapterList(novelName);
     }
 }

@@ -15,6 +15,11 @@ public interface NovelTtsMapper {
     List<String> getNovelList();
 
     //获取章节列表
-    @Select("SELECT * from url where parent_directory =#{novelName}")
-    List<Folder> getChapterList(String novelName);
+    @Select("""
+            SELECT *
+            FROM url
+            WHERE REPLACE(ur, '\\\\', '/') LIKE CONCAT(#{prefix}, '%')
+            """)
+    List<Folder> getChapterList(String prefix);
+
 }
