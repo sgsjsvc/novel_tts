@@ -26,6 +26,7 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
@@ -73,6 +74,9 @@ public class GeminiConcurrentProcessor {
     private PersonMapper personMapper;
     @Autowired
     private DialogueProcessor dialogueProcessor;
+    
+    @Autowired
+    private ParseProgressTracker progressTracker;
 
     public void process(String input, String output, String model, String modelVersion) throws IOException, InterruptedException {
         // 输入文件
@@ -84,45 +88,63 @@ public class GeminiConcurrentProcessor {
         // 输入文件所在目录
         String folderName = input.substring(0, input.lastIndexOf("/"));
         log.info("输入文件所在目录:{}", folderName);
+        // 获取章节名
+        String chapterName = input.substring(input.lastIndexOf("/") + 1);
+        log.info("章节名:{}", chapterName);
         //gemini api url构建
         String GEMINI_URL = URL + "/v1beta/models/" + model + ":generateContent";
         log.info("Gemini API URL:{}", GEMINI_URL);
-        // 创建临时目录
-        Files.createDirectories(Paths.get(tempDir));
-        log.info("临时目录创建:{}", Files.createDirectories(Paths.get(tempDir)));
-        // 读取输入文件
-        List<String> allLines = Files.readAllLines(Paths.get(inputFile));
-        log.info("输入文件行数：{}", allLines.size());
+        
+        try {
+            // 创建临时目录
+            Files.createDirectories(Paths.get(tempDir));
+            log.info("临时目录创建:{}", Files.createDirectories(Paths.get(tempDir)));
+            // 读取输入文件
+            List<String> allLines = Files.readAllLines(Paths.get(inputFile));
+            log.info("输入文件行数：{}", allLines.size());
 
-        // 流程1：生成滑动窗口段
-        List<List<String>> segments = createSlidingWindowSegments(allLines);
+            // 流程1：生成滑动窗口段
+            List<List<String>> segments = createSlidingWindowSegments(allLines);
+            
+            // 初始化进度跟踪
+            progressTracker.initProgress(folderName, chapterName, segments.size());
+            progressTracker.updateProgress(folderName, chapterName, "生成滑动窗口段完成");
 
-        // 流程2：并发处理所有段落
-        List<String> tempFiles = processConcurrently(segments, tempDir, GEMINI_URL);
-        log.info("临时文件路径{}", tempFiles);
-        // 流程3：合并临时文件
-        mergeSegmentFiles(tempFiles, outputFile);
-        log.info("合并临时文件完成，生成文件：{}", outputFile);
-        // 流程4：表名生成
+            // 流程2：并发处理所有段落
+            List<String> tempFiles = processConcurrently(segments, tempDir, GEMINI_URL, folderName, chapterName);
+            log.info("临时文件路径{}", tempFiles);
+            // 流程3：合并临时文件
+            mergeSegmentFiles(tempFiles, outputFile);
+            log.info("合并临时文件完成，生成文件：{}", outputFile);
+            // 流程4：表名生成
 
-        String tableName =personMapper.getTableName(folderName);
-        if (tableName == null){
-            tableName= getTableName.TableName(folderName);
-            log.info("表名生成成功：{}", tableName);
-            // 自动创建表
-            personMapper.createTableIfNotExists(tableName);
-            log.info("✅ 已确认表存在：{}", tableName);
+            String tableName =personMapper.getTableName(folderName);
+            if (tableName == null){
+                tableName= getTableName.TableName(folderName);
+                log.info("表名生成成功：{}", tableName);
+                // 自动创建表
+                personMapper.createTableIfNotExists(tableName);
+                log.info("✅ 已确认表存在：{}", tableName);
 
-            personMapper.insertNovelTable(folderName,tableName);
-            log.info("表名插入数据库完成:{}，{}",folderName,tableName);
-        }else {
-            log.info("表名已存在：{}", tableName);
+                personMapper.insertNovelTable(folderName,tableName);
+                log.info("表名插入数据库完成:{}，{}",folderName,tableName);
+            }else {
+                log.info("表名已存在：{}", tableName);
+            }
+
+            personService.processFile(outputFile, tableName,modelVersion);
+            log.info("角色分配完成");
+
+            dialogueProcessor.processFile(outputFile,tableName,input);
+        } catch (Exception e) {
+            log.error("处理过程中发生异常：{}", e.getMessage(), e);
+            // 标记处理出错
+            progressTracker.markError(folderName, chapterName, "处理过程中发生异常: " + e.getMessage());
+            throw e;
         }
-
-        personService.processFile(outputFile, tableName,modelVersion);
-        log.info("角色分配完成");
-
-        dialogueProcessor.processFile(outputFile,tableName,input);
+        
+        // 只有在整个流程都成功完成后才标记处理完成
+        progressTracker.markCompleted(folderName, chapterName);
 
     }
 
@@ -163,7 +185,7 @@ public class GeminiConcurrentProcessor {
      * @param tempDir  临时文件目录
      * @return 临时文件路径列表
      */
-    private List<String> processConcurrently(List<List<String>> segments, String tempDir, String GEMINI_URL) {
+    private List<String> processConcurrently(List<List<String>> segments, String tempDir, String GEMINI_URL, String folderName, String chapterName) {
         // 创建线程池
         log.info("开始获取并发数数");
         int MAX_CONCURRENT = utilMapper.getMaxConcurrency();
@@ -173,6 +195,8 @@ public class GeminiConcurrentProcessor {
         // 保存所有 Future
         List<Future<String>> futures = new ArrayList<>();
         log.info("开始提交所有任务...");
+        // 添加标志位来跟踪是否有API请求失败
+        AtomicBoolean hasApiError = new AtomicBoolean(false);
         // 提交所有任务
         for (int i = 0; i < segments.size(); i++) {
             log.info("提交任务：{}", i);
@@ -206,15 +230,23 @@ public class GeminiConcurrentProcessor {
                     log.info("MYSQL线程数记录-1");
                     // 获取当前正在请求的线程数
                     activeRequestCount.decrementAndGet();
-                    log.info("当前正在请求的线程数:", getActiveRequestCount());
+                    log.info("当前正在请求的线程数:{}", getActiveRequestCount());
                     // 保存结果
                     String tempFileName = tempDir + "/segment_" + index + ".txt";
                     Files.write(Paths.get(tempFileName), result.getBytes());
                     log.info("段落 {} 处理完成，写入临时文件：{}", index, tempFileName);
+                    
+                    // 更新进度
+                    progressTracker.incrementCompletedSegments(folderName, chapterName);
+                    
                     return tempFileName;
                 } catch (Exception e) {
                     log.error("段落 {} 处理失败：{}", index, e.getMessage());
                     e.printStackTrace();
+                    // 标记处理出错
+                    progressTracker.markError(folderName, chapterName, "段落 " + index + " 处理失败: " + e.getMessage());
+                    // 设置API错误标志
+                    hasApiError.set(true);
                     return null;
                 }
             });
@@ -246,6 +278,12 @@ public class GeminiConcurrentProcessor {
 
         executor.shutdown();
         log.info("并发处理完成，临时文件数：{}", tempFiles.size());
+        
+        // 如果有API请求失败，抛出异常以阻止后续处理
+        if (hasApiError.get()) {
+            throw new RuntimeException("Gemini API请求失败，停止后续处理");
+        }
+        
         return tempFiles;
     }
 
@@ -536,11 +574,11 @@ public class GeminiConcurrentProcessor {
     private String parseResponse(HttpResponse<String> response) {
         JSONObject respJson = new JSONObject(response.body());
         JSONArray candidates = respJson.getJSONArray("candidates");
-        if (candidates.length() == 0) return "";
+        if (candidates.isEmpty()) return "";
 
         JSONObject content = candidates.getJSONObject(0).getJSONObject("content");
         JSONArray parts = content.getJSONArray("parts");
-        if (parts.length() == 0) return "";
+        if (parts.isEmpty()) return "";
 
         return parts.getJSONObject(0).getString("text");
     }
