@@ -11,6 +11,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import novel.tts.novel_tts.service.ParsingProgressService;
+import org.springframework.scheduling.annotation.Async;
+
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -74,7 +77,11 @@ public class GeminiConcurrentProcessor {
     @Autowired
     private DialogueProcessor dialogueProcessor;
 
-    public void process(String input, String output, String model, String modelVersion) throws IOException, InterruptedException {
+    @Autowired
+    private ParsingProgressService parsingProgressService;
+
+    @Async
+    public void process(String input, String output, String model, String modelVersion, String jobId) throws IOException, InterruptedException {
         // 输入文件
         String inputFile = geminiInput + "/" + input + ".txt";
         log.info("输入文件:{}", inputFile);
@@ -96,9 +103,10 @@ public class GeminiConcurrentProcessor {
 
         // 流程1：生成滑动窗口段
         List<List<String>> segments = createSlidingWindowSegments(allLines);
+        parsingProgressService.updateProgress(jobId, 0, segments.size());
 
         // 流程2：并发处理所有段落
-        List<String> tempFiles = processConcurrently(segments, tempDir, GEMINI_URL);
+        List<String> tempFiles = processConcurrently(segments, tempDir, GEMINI_URL, jobId);
         log.info("临时文件路径{}", tempFiles);
         // 流程3：合并临时文件
         mergeSegmentFiles(tempFiles, outputFile);
@@ -122,7 +130,8 @@ public class GeminiConcurrentProcessor {
         personService.processFile(outputFile, tableName,modelVersion);
         log.info("角色分配完成");
 
-        dialogueProcessor.processFile(outputFile,tableName,input);
+        parsingProgressService.updateStage(jobId, "GENERATING_AUDIO");
+        dialogueProcessor.processFile(outputFile,tableName,input, jobId);
 
     }
 
@@ -163,7 +172,7 @@ public class GeminiConcurrentProcessor {
      * @param tempDir  临时文件目录
      * @return 临时文件路径列表
      */
-    private List<String> processConcurrently(List<List<String>> segments, String tempDir, String GEMINI_URL) {
+    private List<String> processConcurrently(List<List<String>> segments, String tempDir, String GEMINI_URL, String jobId) {
         // 创建线程池
         log.info("开始获取并发数数");
         int MAX_CONCURRENT = utilMapper.getMaxConcurrency();
@@ -172,6 +181,7 @@ public class GeminiConcurrentProcessor {
         log.info("创建线程池，最大并发数：{}", MAX_CONCURRENT);
         // 保存所有 Future
         List<Future<String>> futures = new ArrayList<>();
+        AtomicInteger completedCount = new AtomicInteger(0);
         log.info("开始提交所有任务...");
         // 提交所有任务
         for (int i = 0; i < segments.size(); i++) {
@@ -211,6 +221,12 @@ public class GeminiConcurrentProcessor {
                     String tempFileName = tempDir + "/segment_" + index + ".txt";
                     Files.write(Paths.get(tempFileName), result.getBytes());
                     log.info("段落 {} 处理完成，写入临时文件：{}", index, tempFileName);
+
+                    // 更新进度
+                    int currentCompleted = completedCount.incrementAndGet();
+                    parsingProgressService.updateProgress(jobId, currentCompleted, segments.size());
+                    log.info("任务ID: {} - 进度: {}/{}", jobId, currentCompleted, segments.size());
+
                     return tempFileName;
                 } catch (Exception e) {
                     log.error("段落 {} 处理失败：{}", index, e.getMessage());

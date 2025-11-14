@@ -20,8 +20,11 @@ import java.util.Locale;
 /**
  * 启动类：Spring Boot 启动/关闭时自动管理 so-novel.jar
  */
+import org.springframework.scheduling.annotation.EnableAsync;
+
 @MapperScan("novel.tts.novel_tts.mapper")
 @SpringBootApplication
+@EnableAsync
 @Slf4j
 public class NovelTtsApplication {
 

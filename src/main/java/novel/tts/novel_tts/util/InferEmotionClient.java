@@ -60,7 +60,7 @@ public class InferEmotionClient {
             body.put("split_bucket", true);
             body.put("speed_facter", 1);
             body.put("fragment_interval", 0.3);
-            body.put("media_type", "wav");
+            body.put("media_type", "mp3");
             body.put("parallel_infer", true);
             body.put("repetition_penalty", 1.35);
             body.put("seed", -1);

@@ -2,6 +2,7 @@ package novel.tts.novel_tts.util;
 
 import lombok.extern.slf4j.Slf4j;
 import novel.tts.novel_tts.mapper.PersonMapper;
+import novel.tts.novel_tts.service.ParsingProgressService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -9,6 +10,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -27,6 +30,8 @@ public class DialogueProcessor {
     private InferEmotionClient inferEmotionClient;
     @Autowired
     private PersonMapper personMapper;
+    @Autowired
+    private ParsingProgressService parsingProgressService;
 
     // 匹配格式：姓名(性别)：台词
     private static final Pattern LINE_PATTERN = Pattern.compile("^(.+?)\\((男|女|未知)\\)：(.+)$");
@@ -36,22 +41,29 @@ public class DialogueProcessor {
      *
      * @param filePath txt 文件路径
      */
-    public void processFile(String filePath, String table, String file) {
+    public void processFile(String filePath, String table, String file, String jobId) {
         Path path = Paths.get(filePath);
         if (!Files.exists(path)) {
             log.error("❌ 文件不存在: {}", filePath);
+            parsingProgressService.failTask(jobId, "输出文件不存在: " + filePath);
             return;
         }
 
-        try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            String line;
-            int lineNum = 0;
+        try {
+            List<String> allLines = Files.readAllLines(path, StandardCharsets.UTF_8);
+            int totalLines = allLines.size();
+            parsingProgressService.updateProgress(jobId, 0, totalLines);
+            AtomicInteger completedLines = new AtomicInteger(0);
 
-            while ((line = reader.readLine()) != null) {
-                lineNum++;
-                line = line.trim();
+            for (int i = 0; i < totalLines; i++) {
+                String line = allLines.get(i).trim();
+                int lineNum = i + 1;
 
-                if (line.isEmpty()) continue;
+                if (line.isEmpty()) {
+                    completedLines.incrementAndGet();
+                    parsingProgressService.updateProgress(jobId, completedLines.get(), totalLines);
+                    continue;
+                }
 
                 Matcher matcher = LINE_PATTERN.matcher(line);
                 if (matcher.matches()) {
@@ -63,7 +75,6 @@ public class DialogueProcessor {
 
                     String characterName = personMapper.getCharacterName(table, name);
                     log.info("characterName:{}", characterName);
-                    // 🔹 调用推理接口（你可替换 emotion 参数）
                     String response = inferEmotionClient.infer(content, file, characterName);
 
                     if (response != null) {
@@ -72,18 +83,24 @@ public class DialogueProcessor {
                         log.warn("⚠️ [{}] 推理失败", name);
                     }
 
-                    // 这里可适当延时避免接口过载
                     Thread.sleep(200);
                 } else {
                     log.warn("⚠️ 第{}行格式不符，跳过: {}", lineNum, line);
                 }
+
+                completedLines.incrementAndGet();
+                parsingProgressService.updateProgress(jobId, completedLines.get(), totalLines);
             }
+            parsingProgressService.completeTask(jobId);
+            log.info("✅ 任务ID: {} - 音频生成全部完成", jobId);
 
         } catch (IOException e) {
             log.error("❌ 读取文件失败: {}", e.getMessage(), e);
+            parsingProgressService.failTask(jobId, "读取文件失败: " + e.getMessage());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.error("❌ 线程中断: {}", e.getMessage(), e);
+            parsingProgressService.failTask(jobId, "线程中断: " + e.getMessage());
         }
     }
 }

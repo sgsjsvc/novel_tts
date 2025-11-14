@@ -11,7 +11,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
+import novel.tts.novel_tts.pojo.ParsingProgress;
+import novel.tts.novel_tts.service.ParsingProgressService;
+
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("api/novels")
@@ -24,6 +28,8 @@ public class NovelTts {
     private NovelTtsService novelTtsService;
     @Autowired
     private GeminiConcurrentProcessor geminiProcessor;
+    @Autowired
+    private ParsingProgressService parsingProgressService;
 
     @GetMapping("")
     public Result<List<String>> getNovelList() {
@@ -45,16 +51,32 @@ public class NovelTts {
 
     @PostMapping("/{novelName}/chapters/{chapterName}/parse")
     public Result<String> parseChapter(@PathVariable String novelName, @PathVariable String chapterName, @RequestParam(defaultValue = "gemini-2.5-flash") String model, @RequestParam(defaultValue = "v2") String modelVersion) {
-        log.info("▶️ 开始解析小说:{} 的章节:{}", novelName, chapterName);
+        log.info("▶️ 异步开始解析小说:{} 的章节:{}", novelName, chapterName);
         String url = novelName + "/" + chapterName;
         log.info(url);
-        try {
-            geminiProcessor.process(url, url, model,modelVersion);
-        } catch (Exception e) {
-            return Result.error("解析失败");
+
+        ParsingProgress progress = parsingProgressService.startNewTask();
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                geminiProcessor.process(url, url, model, modelVersion, progress.getJobId());
+            } catch (Exception e) {
+                parsingProgressService.failTask(progress.getJobId(), e.getMessage());
+                log.error("❌ 解析小说:{} 的章节:{} 失败", novelName, chapterName, e);
+            }
+        });
+
+        log.info("\uD83D\uDE80 成功启动小说:{} 章节:{} 的解析任务，任务ID: {}", novelName, chapterName, progress.getJobId());
+        return Result.success(progress.getJobId());
+    }
+
+    @GetMapping("/parse/progress/{jobId}")
+    public Result<ParsingProgress> getParseProgress(@PathVariable String jobId) {
+        ParsingProgress progress = parsingProgressService.getProgress(jobId);
+        if (progress == null) {
+            return Result.error("未找到任务ID为: " + jobId + " 的解析任务");
         }
-        log.info("\uD83E\uDDFE 成功解析小说:{} 的章节:{}", novelName, chapterName);
-        return Result.success();
+        return Result.success(progress);
     }
 
 
