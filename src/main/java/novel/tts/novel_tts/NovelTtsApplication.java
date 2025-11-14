@@ -14,9 +14,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import java.io.*;
 import java.net.ServerSocket;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.nio.file.Files;
 
 @MapperScan("novel.tts.novel_tts.mapper")
 @SpringBootApplication
@@ -24,8 +22,8 @@ import java.util.Locale;
 @Slf4j
 public class NovelTtsApplication {
 
-    private Process appProcess;
-    private Process batStartProcess;
+    private Process soNovelProcess;
+    private Process pythonBatProcess;
 
     @Value("${so-novel.novelPath}")
     private String novelPath;
@@ -39,88 +37,144 @@ public class NovelTtsApplication {
 
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
-        try {
-            String configPath = System.getProperty("user.dir") + novelPath + "/config.ini";
-            jarPath = System.getProperty("user.dir") + novelPath + "/so-novel.jar";
+        loadConfig();
+        startSoNovelJar();
+        startPythonByBat();
+    }
 
-            log.info("⚙️ 配置文件路径: {}", configPath);
-            log.info("📦 JAR 路径: {}", jarPath);
+    /** =============================
+     * 读取 config.ini
+     * ============================= */
+    private void loadConfig() {
+        try {
+            String base = System.getProperty("user.dir") + novelPath;
+            String configPath = base + "/config.ini";
+            jarPath = base + "/so-novel.jar";
+
+            log.info("配置文件路径: {}", configPath);
+            log.info("JAR 路径: {}", jarPath);
 
             Wini ini = new Wini(new File(configPath));
             appPort = ini.get("web", "port", int.class);
-            log.info("🌐 so-novel.jar Web 端口: {}", appPort);
 
-        } catch (IOException e) {
-            log.error("❌ 读取 config.ini 失败: {}", e.getMessage());
-            return;
+            log.info("Web端口: {}", appPort);
+
+        } catch (Exception e) {
+            log.error("读取 config.ini 失败: {}", e.getMessage());
         }
+    }
 
+    /** =============================
+     * 启动 so-novel.jar
+     * ============================= */
+    private void startSoNovelJar() {
         try {
             if (isPortInUse(appPort)) {
-                log.warn("⚠️ 端口 {} 已被占用，正在释放...", appPort);
+                log.warn("端口 {} 已占用，正在释放...", appPort);
                 killProcessByPort(appPort);
                 Thread.sleep(800);
             }
 
-            // 启动 so-novel.jar
             File workDir = new File(new File(jarPath).getParent());
-            List<String> command = new ArrayList<>();
-            command.add("java");
-            command.add("-jar");
-            command.add(jarPath);
 
-            ProcessBuilder builder = new ProcessBuilder(command);
-            builder.directory(workDir);
-            builder.redirectErrorStream(true);
-            appProcess = builder.start();
+            ProcessBuilder pb = new ProcessBuilder(
+                    "java",
+                    "-Djava.awt.headless=true",
+                    "-jar",
+                    jarPath
+            );
 
-            log.info("✅ so-novel.jar 已启动");
+            pb.directory(workDir);
+            pb.redirectErrorStream(true);
 
-            String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
-            Charset charset = os.contains("win") ? Charset.forName("GBK") : Charset.forName("UTF-8");
+            soNovelProcess = pb.start();
+            log.info("so-novel.jar 已启动");
 
-            Thread logThread = new Thread(() -> {
-                try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(appProcess.getInputStream(), charset))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        log.info("💡 [so-novel.jar] {}", line);
-                    }
-                } catch (IOException e) {
-                    log.error("❌ 读取 so-novel.jar 输出失败：{}", e.getMessage());
-                }
-            }, "AppJar-Output-Reader");
-            logThread.setDaemon(true);
-            logThread.start();
+            pipeOutput("[SO-NOVEL]", soNovelProcess);
 
         } catch (Exception e) {
-            log.error("❌ 启动 so-novel.jar 失败：{}", e.getMessage());
+            log.error("启动 so-novel.jar 失败: {}", e.getMessage());
         }
-
-        // 启动 start-app.bat（可选）
-        batStartProcess = runBatFile("start-app.bat");
     }
 
+    /** =============================
+     * 启动 Python（使用 bat）
+     * ============================= */
+    private void startPythonByBat() {
+        try {
+            String baseDir = System.getProperty("user.dir") + novelPath + "/GPT-SoVITS/";
+            File workDir = new File(baseDir);
+
+            File batFile = new File(baseDir + "gsvi.bat");
+            if (!batFile.exists()) {
+                log.error("找不到 gsvi.bat 文件：{}", batFile.getAbsolutePath());
+                return;
+            }
+
+            log.info("正在启动 gsvi.bat...");
+
+            // 使用 cmd /c 来执行 bat 文件
+            ProcessBuilder pb = new ProcessBuilder(
+                    "cmd.exe", "/c", batFile.getAbsolutePath()
+            );
+
+            pb.directory(workDir);
+            pb.redirectErrorStream(true);
+
+            pythonBatProcess = pb.start();
+            log.info("gsvi.bat（Python 服务）已启动");
+
+            pipeOutput("[GSVI]", pythonBatProcess);
+
+        } catch (Exception e) {
+            log.error("启动 gsvi.bat 失败: {}", e.getMessage());
+        }
+    }
+
+    /** =============================
+     * 输出子进程日志
+     * ============================= */
+    private void pipeOutput(String tag, Process process) {
+        Charset charset = isWindows() ? Charset.forName("GBK") : Charset.forName("UTF-8");
+
+        new Thread(() -> {
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream(), charset))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    System.out.println(tag + " " + line);
+                }
+            } catch (Exception ignored) {}
+        }).start();
+    }
+
+    /** =============================
+     * Spring Boot 关闭 → 自动结束子进程
+     * ============================= */
     @PreDestroy
     public void onShutdown() {
-        log.info("🛑 ================================");
-        log.info("🛑 Spring Boot 开始关闭流程...");
-        log.info("🛑 ================================");
+        log.info("正在关闭全部子进程...");
 
-        // 关闭 so-novel.jar
-        if (appProcess != null && appProcess.isAlive()) {
-            log.info("🛑 正在关闭 so-novel.jar...");
-            killProcessByPort(appPort);
-        }
+        kill(soNovelProcess, "so-novel.jar");
+        kill(pythonBatProcess, "gsvi.bat/Python");
+        killPythonByPid();
 
-        // 关闭 start-app.bat
-        killBatProcess(batStartProcess, "start-app.bat");
-
-        log.info("✔️ 所有子进程已清理完毕");
+        log.info("所有子进程已关闭");
     }
 
+    private void kill(Process p, String name) {
+        try {
+            if (p != null && p.isAlive()) {
+                log.info("终止 {}", name);
+                p.destroy();
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /** =============================
+     * 工具函数：端口检测 & 杀进程
+     * ============================= */
     private boolean isPortInUse(int port) {
-        try (ServerSocket ss = new ServerSocket(port)) {
+        try (ServerSocket s = new ServerSocket(port)) {
             return false;
         } catch (IOException e) {
             return true;
@@ -128,72 +182,46 @@ public class NovelTtsApplication {
     }
 
     private void killProcessByPort(int port) {
-        String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
-        if (!os.contains("win")) return;
-
         try {
-            Process p = new ProcessBuilder("cmd.exe", "/c", "netstat -ano | findstr :" + port)
-                    .redirectErrorStream(true)
-                    .start();
+            Process p = new ProcessBuilder("cmd.exe", "/c",
+                    "netstat -ano | findstr :" + port).start();
 
-            BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(p.getInputStream(), Charset.forName("GBK")));
-
+            BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream(), "GBK"));
             String line;
-            while ((line = reader.readLine()) != null) {
+
+            while ((line = br.readLine()) != null) {
                 line = line.trim();
                 if (line.isEmpty()) continue;
-                String[] parts = line.split("\\s+");
 
-                if (parts.length >= 5) {
-                    String pid = parts[4];
-                    log.info("⚙️ 正在终止 PID={} 的进程", pid);
-                    new ProcessBuilder("taskkill", "/F", "/PID", pid).start().waitFor();
-                }
+                String pid = line.split("\\s+")[4];
+
+                new ProcessBuilder("taskkill", "/F", "/PID", pid).start().waitFor();
             }
-        } catch (Exception e) {
-            log.error("❌ killProcessByPort 失败：{}", e.getMessage());
-        }
+        } catch (Exception ignored) {}
     }
 
-    private Process runBatFile(String batRelativePath) {
+    private boolean isWindows() {
+        return System.getProperty("os.name").toLowerCase().contains("win");
+    }
+    private void killPythonByPid() {
         try {
-            String baseDir = System.getProperty("user.dir");
-            File batFile = new File(baseDir + novelPath + "/" + batRelativePath);
-
-            if (!batFile.exists()) {
-                log.warn("⚠️ bat 文件不存在：{}", batFile.getAbsolutePath());
-                return null;
+            File pidFile = new File(System.getProperty("user.dir") + novelPath + "/GPT-SoVITS/app.pid");
+            if (!pidFile.exists()) {
+                log.warn("app.pid 不存在，无法结束 python.exe");
+                return;
             }
 
-            log.info("▶️ 正在启动脚本：{}", batFile.getAbsolutePath());
+            String pid = Files.readString(pidFile.toPath()).trim();
+            log.info("终止 python.exe PID={}", pid);
 
-            ProcessBuilder builder = new ProcessBuilder("cmd.exe", "/c", batFile.getAbsolutePath());
-            builder.redirectErrorStream(true);
-            Process process = builder.start();
+            new ProcessBuilder("taskkill", "/F", "/PID", pid).start().waitFor();
 
-            new Thread(() -> {
-                try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(process.getInputStream(), "GBK"))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        log.info("[BAT] {}", line);
-                    }
-                } catch (IOException ignored) {}
-            }).start();
-
-            return process;
+            // 删除 PID 文件
+            pidFile.delete();
 
         } catch (Exception e) {
-            log.error("❌ bat 脚本执行失败：{}", e.getMessage());
-            return null;
+            log.error("killPythonByPid 失败：{}", e.getMessage());
         }
     }
 
-    private void killBatProcess(Process p, String name) {
-        if (p != null && p.isAlive()) {
-            log.info("🛑 正在终止 {} ...", name);
-            p.destroy();
-        }
-    }
 }
