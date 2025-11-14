@@ -230,8 +230,8 @@ public class GeminiConcurrentProcessor {
                     return tempFileName;
                 } catch (Exception e) {
                     log.error("段落 {} 处理失败：{}", index, e.getMessage());
-                    e.printStackTrace();
-                    return null;
+                    // Instead of returning null, rethrow the exception to be caught by the Future
+                    throw new RuntimeException(e);
                 }
             });
 
@@ -247,20 +247,28 @@ public class GeminiConcurrentProcessor {
 
         // 等待所有任务完成并收集结果
         List<String> tempFiles = new ArrayList<>();
-        for (int i = 0; i < futures.size(); i++) {
-            Future<String> f = futures.get(i);
-            String tempFile = null;
-            try {
-                tempFile = f.get();
-            } catch (Exception e) {
-                log.error("段落 {} 获取结果失败：{}", i, e.getMessage());
+        try {
+            for (int i = 0; i < futures.size(); i++) {
+                Future<String> f = futures.get(i);
+                String tempFile = f.get(); // This will throw an exception if the task failed
+                if (tempFile != null) {
+                    tempFiles.add(tempFile);
+                }
             }
-            if (tempFile != null) {
-                tempFiles.add(tempFile);
+        } catch (Exception e) {
+            log.error("❌ 一个或多个并发任务失败，正在中止所有任务...", e);
+            // On the first failure, attempt to cancel all other running tasks
+            for (Future<String> f : futures) {
+                f.cancel(true);
             }
+            // Rethrow the exception to be caught by the top-level async handler
+            throw new RuntimeException("并发处理失败", e);
+        } finally {
+            // Ensure the executor is always shut down
+            executor.shutdownNow();
+            log.info("ℹ️ 线程池已关闭");
         }
 
-        executor.shutdown();
         log.info("并发处理完成，临时文件数：{}", tempFiles.size());
         return tempFiles;
     }

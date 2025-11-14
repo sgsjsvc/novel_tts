@@ -24,6 +24,12 @@ public class FileWebConfig implements WebMvcConfigurer {
         registry.addResourceHandler("/temp/**")
                 .addResourceLocations("file:" + folderPath.toAbsolutePath().toString() + "/")
                 .setCachePeriod(3600);
+
+        // Add a new resource handler for audio files to be accessed via /api/audio/**
+        Path audioPath = currentDir.resolve("temp/output/audio");
+        registry.addResourceHandler("/api/audio/**")
+                .addResourceLocations("file:" + audioPath.toAbsolutePath().toString() + "/")
+                .setCachePeriod(3600);
     }
 
     @Override

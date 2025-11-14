@@ -9,6 +9,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 import java.io.*;
 import java.net.ServerSocket;
@@ -17,11 +18,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * 启动类：Spring Boot 启动/关闭时自动管理 so-novel.jar
- */
-import org.springframework.scheduling.annotation.EnableAsync;
-
 @MapperScan("novel.tts.novel_tts.mapper")
 @SpringBootApplication
 @EnableAsync
@@ -29,55 +25,45 @@ import org.springframework.scheduling.annotation.EnableAsync;
 public class NovelTtsApplication {
 
     private Process appProcess;
+    private Process batStartProcess;
 
-    // so-novel.jar 所在目录，可在 application.yml 中配置
     @Value("${so-novel.novelPath}")
     private String novelPath;
 
     private String jarPath;
-
-    // 从 config.ini 读取的 Web 服务端口
     private int appPort;
 
     public static void main(String[] args) {
         SpringApplication.run(NovelTtsApplication.class, args);
     }
 
-    /**
-     * Spring Boot 启动完成后自动执行
-     */
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
         try {
-            // 读取配置文件路径
             String configPath = System.getProperty("user.dir") + novelPath + "/config.ini";
             jarPath = System.getProperty("user.dir") + novelPath + "/so-novel.jar";
 
             log.info("⚙️ 配置文件路径: {}", configPath);
-            log.info( "\uD83D\uDCC4 目标应用路径: {}", jarPath);
+            log.info("📦 JAR 路径: {}", jarPath);
 
-            // 使用 ini4j 读取配置
             Wini ini = new Wini(new File(configPath));
             appPort = ini.get("web", "port", int.class);
-            log.info("\uD83D\uDCC4 配置文件路径: {}", appPort);
+            log.info("🌐 so-novel.jar Web 端口: {}", appPort);
 
         } catch (IOException e) {
-            log.error("读取 config.ini 失败: {}", e.getMessage());
+            log.error("❌ 读取 config.ini 失败: {}", e.getMessage());
             return;
         }
 
         try {
-            // 检查端口占用
             if (isPortInUse(appPort)) {
-                log.warn("⚠️ 端口 {} 已被占用，尝试释放...", appPort);
+                log.warn("⚠️ 端口 {} 已被占用，正在释放...", appPort);
                 killProcessByPort(appPort);
-                Thread.sleep(1000);
+                Thread.sleep(800);
             }
 
             // 启动 so-novel.jar
             File workDir = new File(new File(jarPath).getParent());
-
-            // 构建命令：java -jar so-novel.jar
             List<String> command = new ArrayList<>();
             command.add("java");
             command.add("-jar");
@@ -88,65 +74,62 @@ public class NovelTtsApplication {
             builder.redirectErrorStream(true);
             appProcess = builder.start();
 
-            log.info("✅ so-novel.jar 已成功启动。");
+            log.info("✅ so-novel.jar 已启动");
 
-            // 根据系统编码选择字符集
             String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
             Charset charset = os.contains("win") ? Charset.forName("GBK") : Charset.forName("UTF-8");
 
-            // 启动守护线程输出子进程日志
             Thread logThread = new Thread(() -> {
                 try (BufferedReader reader = new BufferedReader(
                         new InputStreamReader(appProcess.getInputStream(), charset))) {
                     String line;
                     while ((line = reader.readLine()) != null) {
-                        log.info("\uD83D\uDCA1 [so-novel.jar] {}", line);
+                        log.info("💡 [so-novel.jar] {}", line);
                     }
                 } catch (IOException e) {
                     log.error("❌ 读取 so-novel.jar 输出失败：{}", e.getMessage());
                 }
             }, "AppJar-Output-Reader");
-
             logThread.setDaemon(true);
             logThread.start();
 
         } catch (Exception e) {
             log.error("❌ 启动 so-novel.jar 失败：{}", e.getMessage());
         }
+
+        // 启动 start-app.bat（可选）
+        batStartProcess = runBatFile("start-app.bat");
     }
 
-    /**
-     * Spring Boot 关闭时停止 so-novel.jar
-     */
     @PreDestroy
     public void onShutdown() {
+        log.info("🛑 ================================");
+        log.info("🛑 Spring Boot 开始关闭流程...");
+        log.info("🛑 ================================");
+
+        // 关闭 so-novel.jar
         if (appProcess != null && appProcess.isAlive()) {
-            log.info("\uD83D\uDCA1 正在关闭 so-novel.jar...");
+            log.info("🛑 正在关闭 so-novel.jar...");
             killProcessByPort(appPort);
-            log.info("\uD83D\uDD4A\uFE0F so-novel.jar 已成功关闭。");
         }
+
+        // 关闭 start-app.bat
+        killBatProcess(batStartProcess, "start-app.bat");
+
+        log.info("✔️ 所有子进程已清理完毕");
     }
 
-    /**
-     * 判断端口是否被占用
-     */
     private boolean isPortInUse(int port) {
         try (ServerSocket ss = new ServerSocket(port)) {
-            return false; // 未占用
+            return false;
         } catch (IOException e) {
-            return true; // 被占用
+            return true;
         }
     }
 
-    /**
-     * Windows 下通过端口号终止进程
-     */
     private void killProcessByPort(int port) {
         String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
-        if (!os.contains("win")) {
-            log.warn("⚠️ 当前系统非 Windows，请手动关闭进程。");
-            return;
-        }
+        if (!os.contains("win")) return;
 
         try {
             Process p = new ProcessBuilder("cmd.exe", "/c", "netstat -ano | findstr :" + port)
@@ -155,22 +138,62 @@ public class NovelTtsApplication {
 
             BufferedReader reader = new BufferedReader(
                     new InputStreamReader(p.getInputStream(), Charset.forName("GBK")));
+
             String line;
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
                 if (line.isEmpty()) continue;
                 String[] parts = line.split("\\s+");
+
                 if (parts.length >= 5) {
                     String pid = parts[4];
-                    log.info("⚙️ 终止 PID={} 的进程", pid);
-                    new ProcessBuilder("taskkill", "/F", "/PID", pid)
-                            .start()
-                            .waitFor();
+                    log.info("⚙️ 正在终止 PID={} 的进程", pid);
+                    new ProcessBuilder("taskkill", "/F", "/PID", pid).start().waitFor();
                 }
             }
-            p.waitFor();
         } catch (Exception e) {
-            log.error("结束进程失败：{}", e.getMessage());
+            log.error("❌ killProcessByPort 失败：{}", e.getMessage());
+        }
+    }
+
+    private Process runBatFile(String batRelativePath) {
+        try {
+            String baseDir = System.getProperty("user.dir");
+            File batFile = new File(baseDir + novelPath + "/" + batRelativePath);
+
+            if (!batFile.exists()) {
+                log.warn("⚠️ bat 文件不存在：{}", batFile.getAbsolutePath());
+                return null;
+            }
+
+            log.info("▶️ 正在启动脚本：{}", batFile.getAbsolutePath());
+
+            ProcessBuilder builder = new ProcessBuilder("cmd.exe", "/c", batFile.getAbsolutePath());
+            builder.redirectErrorStream(true);
+            Process process = builder.start();
+
+            new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream(), "GBK"))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        log.info("[BAT] {}", line);
+                    }
+                } catch (IOException ignored) {}
+            }).start();
+
+            return process;
+
+        } catch (Exception e) {
+            log.error("❌ bat 脚本执行失败：{}", e.getMessage());
+            return null;
+        }
+    }
+
+    private void killBatProcess(Process p, String name) {
+        if (p != null && p.isAlive()) {
+            log.info("🛑 正在终止 {} ...", name);
+            p.destroy();
         }
     }
 }

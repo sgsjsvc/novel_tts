@@ -34,6 +34,14 @@ public class InferEmotionClient {
     private static final AtomicInteger FILE_COUNTER = new AtomicInteger(0);
 
     /**
+     * 重置文件名计数器
+     */
+    public void resetCounter() {
+        FILE_COUNTER.set(0);
+        log.info("ℹ️ 文件名计数器已重置为 0");
+    }
+
+    /**
      * 执行情绪推理并自动下载音频
      * @param text 待合成文本
      * @return 保存的本地文件路径

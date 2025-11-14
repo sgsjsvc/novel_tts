@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
+import novel.tts.novel_tts.pojo.Playlist;
 import novel.tts.novel_tts.pojo.ParsingProgress;
 import novel.tts.novel_tts.service.ParsingProgressService;
 
@@ -77,6 +78,14 @@ public class NovelTts {
             return Result.error("未找到任务ID为: " + jobId + " 的解析任务");
         }
         return Result.success(progress);
+    }
+
+    @GetMapping("/{novelName}/chapters/{chapterName}/playlist")
+    public Result<List<Playlist>> getChapterPlaylist(@PathVariable String novelName, @PathVariable String chapterName) {
+        log.info("▶️ 获取小说:{} 章节:{} 的播放列表", novelName, chapterName);
+        List<Playlist> playlist = novelTtsService.getChapterPlaylist(novelName, chapterName);
+        log.info("\uD83C\uDFB5 成功获取播放列表，包含 {} 个项目", playlist.size());
+        return Result.success(playlist);
     }
 
 

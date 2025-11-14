@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import novel.tts.novel_tts.mapper.PersonMapper;
 import novel.tts.novel_tts.service.ParsingProgressService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
@@ -33,6 +34,9 @@ public class DialogueProcessor {
     @Autowired
     private ParsingProgressService parsingProgressService;
 
+    @Value("${emotion.save.dir:temp/output/audio}")
+    private String audioSaveDir;
+
     // 匹配格式：姓名(性别)：台词
     private static final Pattern LINE_PATTERN = Pattern.compile("^(.+?)\\((男|女|未知)\\)：(.+)$");
 
@@ -42,6 +46,31 @@ public class DialogueProcessor {
      * @param filePath txt 文件路径
      */
     public void processFile(String filePath, String table, String file, String jobId) {
+        // --- Start: Pre-emptive Deletion and Counter Reset ---
+        try {
+            // 1. Reset the counter in InferEmotionClient
+            inferEmotionClient.resetCounter();
+
+            // 2. Construct the specific audio output directory for the chapter
+            Path chapterAudioDir = Paths.get(audioSaveDir, file);
+
+            // 3. Delete existing files in the directory
+            if (Files.exists(chapterAudioDir)) {
+                log.info("ℹ️ 正在清空旧的音频文件于: {}", chapterAudioDir);
+                try (DirectoryStream<Path> stream = Files.newDirectoryStream(chapterAudioDir)) {
+                    for (Path entry : stream) {
+                        Files.delete(entry);
+                    }
+                }
+                log.info("✅ 成功清空目录: {}", chapterAudioDir);
+            }
+        } catch (IOException e) {
+            log.error("❌ 清空旧音频文件时出错: {}", e.getMessage(), e);
+            parsingProgressService.failTask(jobId, "清空旧音频文件失败: " + e.getMessage());
+            return;
+        }
+        // --- End: Pre-emptive Deletion and Counter Reset ---
+
         Path path = Paths.get(filePath);
         if (!Files.exists(path)) {
             log.error("❌ 文件不存在: {}", filePath);
