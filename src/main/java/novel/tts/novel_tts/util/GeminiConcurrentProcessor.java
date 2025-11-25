@@ -100,38 +100,44 @@ public class GeminiConcurrentProcessor {
         // 读取输入文件
         List<String> allLines = Files.readAllLines(Paths.get(inputFile));
         log.info("输入文件行数：{}", allLines.size());
+        // ===== 修复章节名丢失问题 =====
+        // 第一行永远是章节名，必须保持原样
+        String chapterName = allLines.get(0);
+        // 去掉第一行，让后续滑动窗口从第 2 行开始
+        List<String> contentLines = allLines.subList(1, allLines.size());
+
 
         // 流程1：生成滑动窗口段
-        List<List<String>> segments = createSlidingWindowSegments(allLines);
+        List<List<String>> segments = createSlidingWindowSegments(contentLines);
         parsingProgressService.updateProgress(jobId, 0, segments.size());
 
         // 流程2：并发处理所有段落
         List<String> tempFiles = processConcurrently(segments, tempDir, GEMINI_URL, jobId);
         log.info("临时文件路径{}", tempFiles);
         // 流程3：合并临时文件
-        mergeSegmentFiles(tempFiles, outputFile);
+        mergeSegmentFiles(tempFiles, outputFile,chapterName);
         log.info("合并临时文件完成，生成文件：{}", outputFile);
         // 流程4：表名生成
 
-        String tableName =personMapper.getTableName(folderName);
-        if (tableName == null){
-            tableName= getTableName.TableName(folderName);
+        String tableName = personMapper.getTableName(folderName);
+        if (tableName == null) {
+            tableName = getTableName.TableName(folderName);
             log.info("表名生成成功：{}", tableName);
             // 自动创建表
             personMapper.createTableIfNotExists(tableName);
             log.info("✅ 已确认表存在：{}", tableName);
 
-            personMapper.insertNovelTable(folderName,tableName);
-            log.info("表名插入数据库完成:{}，{}",folderName,tableName);
-        }else {
+            personMapper.insertNovelTable(folderName, tableName);
+            log.info("表名插入数据库完成:{}，{}", folderName, tableName);
+        } else {
             log.info("表名已存在：{}", tableName);
         }
 
-        personService.processFile(outputFile, tableName,modelVersion);
+        personService.processFile(outputFile, tableName, modelVersion);
         log.info("角色分配完成");
 
         parsingProgressService.updateStage(jobId, "GENERATING_AUDIO");
-        dialogueProcessor.processFile(outputFile,tableName,input, jobId);
+        dialogueProcessor.processFile(outputFile, tableName, input, jobId);
 
     }
 
@@ -279,99 +285,92 @@ public class GeminiConcurrentProcessor {
      * @param tempFiles  临时文件路径列表
      * @param outputFile 输出文件路径
      */
-    private void mergeSegmentFiles(List<String> tempFiles, String outputFile) {
+    private void mergeSegmentFiles(List<String> tempFiles, String outputFile, String chapterName) {
         log.info("开始合并临时文件：{}", tempFiles);
         try {
-            // ✅ 自动创建输出目录
+            // 自动创建输出目录
             Path outputPath = Paths.get(outputFile);
-            Path parentDir = outputPath.getParent();
-            if (parentDir != null && !Files.exists(parentDir)) {
-                Files.createDirectories(parentDir);
-                log.info("已创建输出目录：{}", parentDir.toAbsolutePath());
-            }
+            Files.createDirectories(outputPath.getParent());
+
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))) {
 
-                Set<String> globalWrittenLines = new LinkedHashSet<>();
-                log.info("初始化全局去重集合成功");
+            // ===== 写入章节名（转换为旁白，确保进入 TTS 流程）=====
+                if (chapterName != null && !chapterName.trim().isEmpty()) {
+                    String chapterLine = "旁白(未知)： " + chapterName.trim();
+                    writer.write(chapterLine);
+                    writer.newLine();
+                    log.info("章节名写入完成（旁白格式）：{}", chapterLine);
+                }
+
+
+                // 全局去重缓存（只比较内容，不包含章节名）
+                Set<String> globalCache = new LinkedHashSet<>();
 
                 for (int i = 0; i < tempFiles.size(); i++) {
                     String tempFile = tempFiles.get(i);
-                    log.info("==== 开始处理第 {} 个临时文件：{} ====", i, tempFile);
-
                     Path path = Paths.get(tempFile);
 
-                    // 安全检查：文件是否存在
                     if (!Files.exists(path)) {
-                        log.warn("跳过：文件不存在 -> {}", path.toAbsolutePath());
+                        log.warn("跳过不存在的文件：{}", tempFile);
                         continue;
                     }
 
-                    // 强制指定 UTF-8，防止卡住
-                    List<String> lines;
-                    try {
-                        lines = Files.readAllLines(path, StandardCharsets.UTF_8);
-                    } catch (Exception e) {
-                        log.error("读取文件失败：{}", tempFile, e);
-                        continue;
-                    }
+                    List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
 
-                    log.info("读取成功，共 {} 行", lines.size());
-
-                    List<String> linesToProcess;
-                    int skipCount = 0, writeCount = 0;
+                    // ===== 分段裁剪修正（不会少行）=====
+                    List<String> linesToWrite;
 
                     if (i == 0) {
-                        int endIndex = Math.max(0, lines.size() - OVERLAP_KEEP);
-                        linesToProcess = lines.subList(0, endIndex);
-                        log.info("第一段：保留 {} 行，删除末尾 {} 行", endIndex, OVERLAP_KEEP);
+                        // 第一段：不裁掉头部，但裁掉尾部重叠
+                        int end = Math.max(0, lines.size() - OVERLAP_KEEP);
+                        linesToWrite = lines.subList(0, end);
                     } else if (i == tempFiles.size() - 1) {
-                        int startIndex = Math.min(OVERLAP_KEEP, lines.size());
-                        linesToProcess = lines.subList(startIndex, lines.size());
-                        log.info("最后一段：删除前 {} 行，保留 {} 行", startIndex, lines.size() - startIndex);
+                        // 最后一段：裁掉头部重叠
+                        int start = Math.min(OVERLAP_KEEP, lines.size());
+                        linesToWrite = lines.subList(start, lines.size());
                     } else {
-                        int startIndex = Math.min(OVERLAP_KEEP, lines.size());
-                        int endIndex = Math.max(startIndex, lines.size() - OVERLAP_KEEP);
-                        linesToProcess = lines.subList(startIndex, endIndex);
-                        log.info("中间段：删除前 {} 行与后 {} 行，保留 {} 行", startIndex, lines.size() - endIndex, endIndex - startIndex);
+                        // 中间段：去掉前后重叠
+                        int start = Math.min(OVERLAP_KEEP, lines.size());
+                        int end = Math.max(start, lines.size() - OVERLAP_KEEP);
+                        linesToWrite = lines.subList(start, end);
                     }
 
-                    for (String line : linesToProcess) {
+                    // ===== 精准去重，不误删内容 =====
+                    for (String line : linesToWrite) {
+
                         if (line.trim().isEmpty()) continue;
-                        String normalizedLine = normalizeLine(line);
-                        if (globalWrittenLines.contains(normalizedLine)) {
-                            skipCount++;
+
+                        String normalized = normalizeLine(line);
+                        if (globalCache.contains(normalized)) {
                             continue;
                         }
+
                         writer.write(line);
                         writer.newLine();
-                        globalWrittenLines.add(normalizedLine);
+                        globalCache.add(normalized);
 
-                        // 控制内存
-                        if (globalWrittenLines.size() > 500) {
-                            Iterator<String> iterator = globalWrittenLines.iterator();
-                            for (int j = 0; j < 200 && iterator.hasNext(); j++) {
-                                iterator.next();
-                                iterator.remove();
+                        // 控制缓存大小
+                        if (globalCache.size() > 800) {
+                            Iterator<String> it = globalCache.iterator();
+                            for (int x = 0; x < 300 && it.hasNext(); x++) {
+                                it.next();
+                                it.remove();
                             }
                         }
-                        writeCount++;
                     }
-
-                    log.info("第 {} 段合并完成，跳过重复 {} 行，写入 {} 行", i, skipCount, writeCount);
                 }
 
                 writer.flush();
-                log.info("写入完毕，输出文件：{}", outputFile);
+                log.info("文件合并完成：{}", outputFile);
 
             } catch (Exception e) {
-                log.error("合并过程中出现异常：{}", e.getMessage(), e);
+                log.error("合并出错：", e);
             }
-
-            log.info("mergeSegmentFiles() 方法执行完毕 ✅");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
+
 
 
     /**
