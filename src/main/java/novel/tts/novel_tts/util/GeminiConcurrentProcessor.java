@@ -290,6 +290,7 @@ public class GeminiConcurrentProcessor {
         try {
             // 自动创建输出目录
             Path outputPath = Paths.get(outputFile);
+
             Files.createDirectories(outputPath.getParent());
 
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))) {
