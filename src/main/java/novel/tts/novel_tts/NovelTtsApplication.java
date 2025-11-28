@@ -15,6 +15,10 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
 
 @MapperScan("novel.tts.novel_tts.mapper")
 @SpringBootApplication
@@ -126,6 +130,8 @@ public class NovelTtsApplication {
 
             pipeOutput("[GSVI]", pythonBatProcess);
 
+            // 启动后删除所有音频文件
+            deleteAllAudioFiles();
         } catch (Exception e) {
             log.error("启动 gsvi.bat 失败: {}", e.getMessage());
         }
@@ -221,6 +227,46 @@ public class NovelTtsApplication {
 
         } catch (Exception e) {
             log.error("killPythonByPid 失败：{}", e.getMessage());
+        }
+    }
+
+    /** =============================
+     * 工具函数：删除所有音频文件
+     * ============================= */
+
+    public static void deleteAllAudioFiles() {
+        Path outputDir = Paths.get(System.getProperty("user.dir"))
+                .resolve("GPT-SoVITS/outputs");
+
+        if (!Files.exists(outputDir)) {
+            log.warn("音频输出目录不存在，跳过删除: {}", outputDir);
+            return;
+        }
+
+        List<String> audioExts = Arrays.asList(".wav", ".mp3", ".flac", ".ogg", ".m4a");
+
+        try {
+            long deletedCount = Files.walk(outputDir)
+                    .filter(Files::isRegularFile)
+                    .filter(path -> {
+                        String name = path.getFileName().toString().toLowerCase();
+                        return audioExts.stream().anyMatch(name::endsWith);
+                    })
+                    .peek(path -> {
+                        try {
+                            Files.delete(path);
+                            log.info("已删除音频文件: {}", path.getFileName());
+                        } catch (IOException e) {
+                            log.error("删除音频文件失败: {}", path.getFileName(), e);
+                        }
+                    })
+                    .count();
+
+            log.info("音频清理完成，共删除 {} 个文件", deletedCount);
+
+        } catch (IOException e) {
+            log.error("遍历音频目录时发生错误: {}", outputDir, e);
+            throw new RuntimeException("清理音频文件失败", e);
         }
     }
 
