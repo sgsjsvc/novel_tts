@@ -25,6 +25,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -43,17 +44,20 @@ public class GeminiConcurrentProcessor {
     // 重叠保留长度
     @Value("${gemini.GeminiConcurrentProcessor.concurrent.OVERLAP_KEEP}")
     private int OVERLAP_KEEP;
-    // API 地址
+    // Gemini API 地址
     @Value("${gemini.GeminiConcurrentProcessor.api.url}")
-    private String URL;
-    // 思考功能
+    private String GEMINI_URL;
+    // FastGPT API 地址
+    @Value("${fastgpt.api.url:http://anlin.us.kg:33000/api}") // 默认值为FastGPT文档中的地址
+    private String FASTGPT_URL;
+    // 思考功能 (Gemini相关)
     @Value("${gemini.GeminiConcurrentProcessor.concurrent.THINKING_BUDGET}")
     private int THINKING_BUDGET;
     // 临时目录
     @Value("${gemini.GeminiConcurrentProcessor.concurrent.tempDir:temp/temp}")
     private String tempDir;
     @Value("${gemini.GeminiConcurrentProcessor.concurrent.geminiTxt:temp/output/geminiTxt/}")
-    private String geminiTxt;
+    private String geminiTxt; // 通用输出目录，FastGPT也使用
     @Value("${gemini.GeminiConcurrentProcessor.concurrent.geminiInput:temp/output/txt/}")
     private String geminiInput;
     // 当前正在请求的线程数
@@ -91,9 +95,15 @@ public class GeminiConcurrentProcessor {
         // 输入文件所在目录
         String folderName = input.substring(0, input.lastIndexOf("/"));
         log.info("输入文件所在目录:{}", folderName);
-        //gemini api url构建
-        String GEMINI_URL = URL + "/v1beta/models/" + model + ":generateContent";
-        log.info("Gemini API URL:{}", GEMINI_URL);
+        // 构建 API URL 根据模型
+        String API_BASE_URL;
+        if ("fastgpt".equalsIgnoreCase(model)) {
+            API_BASE_URL = FASTGPT_URL; // FastGPT 使用配置的根 URL
+            log.info("FastGPT API Base URL:{}", API_BASE_URL);
+        } else {
+            API_BASE_URL = GEMINI_URL + "/v1beta/models/" + model + ":generateContent";// Gemini 使用模型特定 URL
+            log.info("Gemini API Base URL:{}", API_BASE_URL);
+        }
         // 创建临时目录
         Files.createDirectories(Paths.get(tempDir));
         log.info("临时目录创建:{}", Files.createDirectories(Paths.get(tempDir)));
@@ -112,7 +122,7 @@ public class GeminiConcurrentProcessor {
         parsingProgressService.updateProgress(jobId, 0, segments.size());
 
         // 流程2：并发处理所有段落
-        List<String> tempFiles = processConcurrently(segments, tempDir, GEMINI_URL, jobId);
+        List<String> tempFiles = processConcurrently(segments, tempDir, API_BASE_URL, model, jobId); // 传递模型名称
         log.info("临时文件路径{}", tempFiles);
         // 流程3：合并临时文件
         mergeSegmentFiles(tempFiles, outputFile,chapterName);
@@ -176,13 +186,26 @@ public class GeminiConcurrentProcessor {
      *
      * @param segments 分段列表
      * @param tempDir  临时文件目录
+     * @param apiBaseUrl API 的基础 URL
+     * @param model 模型名称
      * @return 临时文件路径列表
      */
-    private List<String> processConcurrently(List<List<String>> segments, String tempDir, String GEMINI_URL, String jobId) {
+    private List<String> processConcurrently(List<List<String>> segments, String tempDir, String apiBaseUrl, String model, String jobId) {
+        // 构建 API URL 根据模型
+        String modelName;
+        if ("fastgpt".equalsIgnoreCase(model)) {
+            modelName = "fastgpt"; // FastGPT 使用配置的
+            log.info("模型提供商:{}", modelName);
+        } else {
+            modelName = "gemini";// Gemini 使用模型
+            log.info("模型提供商:{}", modelName);
+        }
+
+
         // 创建线程池
         log.info("开始获取并发数数");
-        int MAX_CONCURRENT = utilMapper.getMaxConcurrency();
-        log.info("获取最大并发数成功:{}", MAX_CONCURRENT);
+        int MAX_CONCURRENT = utilMapper.getMaxConcurrency(modelName);
+        log.info("获取最大并发数成功:{}，模型提供商：{}", MAX_CONCURRENT,modelName);
         ExecutorService executor = Executors.newFixedThreadPool(MAX_CONCURRENT);
         log.info("创建线程池，最大并发数：{}", MAX_CONCURRENT);
         // 保存所有 Future
@@ -194,6 +217,7 @@ public class GeminiConcurrentProcessor {
             log.info("提交任务：{}", i);
             final int index = i;
             final List<String> segment = segments.get(i);
+            final String currentModel = model; // 闭包捕获模型名称
 
             Future<String> future = executor.submit(() -> {
                 try {
@@ -201,7 +225,8 @@ public class GeminiConcurrentProcessor {
                     log.info("段落 {} 请求开始...", index);
 
                     log.info("开始获取api-key");
-                    String API_KEY = utilMapper.getToken();
+                    String API_KEY = utilMapper.getToken(modelName);
+                    log.info("模型提供商:{}", modelName);
                     log.info("获取api-key成功:{}", API_KEY);
 
                     //MYSQL线程数记录+1
@@ -214,8 +239,16 @@ public class GeminiConcurrentProcessor {
                     activeRequestCount.incrementAndGet();
                     log.info("当前正在请求的线程数：{}", getActiveRequestCount());
 
-                    // 调用 Gemini API
-                    String result = callGeminiApi(text, GEMINI_URL, API_KEY);
+                    String result;
+                    // 根据模型类型调用不同的 API
+                    if ("fastgpt".equalsIgnoreCase(currentModel)) {
+                        log.info("使用 FastGPT API 处理段落 {}", index);
+                        result = callFastGPTApi(text, apiBaseUrl, API_KEY);
+                    } else {
+                        log.info("使用 Gemini API 处理段落 {}", index);
+                        String fullGeminiUrl = apiBaseUrl + ":generateContent"; // Gemini 需要添加端点
+                        result = callGeminiApi(text, fullGeminiUrl, API_KEY);
+                    }
                     log.info("段落 {} 处理完成，长度：{}", index, result.length());
                     //MYSQL线程数记录-1
                     dbFieldUpdater.updateField("api_token", "alive_thread", -1, "token", API_KEY);
@@ -290,7 +323,6 @@ public class GeminiConcurrentProcessor {
         try {
             // 自动创建输出目录
             Path outputPath = Paths.get(outputFile);
-
             Files.createDirectories(outputPath.getParent());
 
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))) {
@@ -493,6 +525,31 @@ public class GeminiConcurrentProcessor {
         return parseResponse(response);
     }
 
+    /**
+     * 调用 FastGPT API 进行文本转换
+     * FastGPT 接口不添加提示词，直接使用原始文本。
+     *
+     * @param text 输入文本
+     * @return 转换后的文本
+     */
+    public String callFastGPTApi(String text, String FASTGPT_BASE_URL, String API_KEY) throws
+            IOException, InterruptedException {
+        // FastGPT API 不需要在请求中添加提示词，提示词已在FastGPT内部配置
+        String fullText = text;
+
+        // 构建 FastGPT 请求体
+        String requestBody = buildFastGPTRequestBody(fullText);
+
+        // FastGPT API 端点
+        String fastGPTUrl = FASTGPT_BASE_URL + "/v1/chat/completions";
+
+        // 发送HTTP请求 (FastGPT 使用 Bearer Token)
+        HttpResponse<String> response = sendFastGPTHttpRequest(requestBody, fastGPTUrl, API_KEY);
+
+        // 解析 FastGPT 响应
+        return parseFastGPTResponse(response);
+    }
+
 
     /**
      * 构建 Gemini API 请求体
@@ -526,6 +583,45 @@ public class GeminiConcurrentProcessor {
     }
 
     /**
+     * 构建 FastGPT API 请求体
+     *
+     * @param text 要发送的完整文本（不包含提示词）
+     * @return JSON 格式的请求体字符串
+     */
+    /**
+     * 构建 FastGPT API 请求体 —— 终极防坑版（2025）
+     */
+    /**
+     * 2025 年实测最稳请求体 —— 严格遵循 FastGPT 官方 curl 示例
+     * 任何多一个字段、少一个字段、改一个字段名都会被你的 FastGPT 直接 EOF 杀死
+     */
+    private String buildFastGPTRequestBody(String text) {
+        // 必须严格保持这个格式！不能加 user、不能加 customUid、不能加 variables、不能加 appId
+        return """
+        {
+            "chatId": "novel-tts-forever",
+            "stream": false,
+            "detail": false,
+            "messages": [
+                {
+                    "content": %s,
+                    "role": "user"
+                }
+            ]
+        }
+        """.formatted(escapeJson(text));
+    }
+
+    // 简单可靠的 JSON 字符串转义
+    private String escapeJson(String raw) {
+        return "\"" + raw
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "") + "\"";
+    }
+
+    /**
      * 发送 HTTP POST 请求到 Gemini API
      *
      * @param requestBody 请求体内容
@@ -536,20 +632,87 @@ public class GeminiConcurrentProcessor {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(GEMINI_URL))
                 .header("Content-Type", "application/json")
-                .header("x-goog-api-key", API_KEY)
+                .header("x-goog-api-key", API_KEY) // Gemini 使用 x-goog-api-key
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-        log.info("API返回状态：{}", response.statusCode());
-        log.info("API返回内容：{}", response.body());
+        log.info("Gemini API返回状态：{}", response.statusCode());
+        log.info("Gemini API返回内容：{}", response.body());
         if (response.statusCode() != 200) {
             throw new RuntimeException("Gemini API请求失败: " + response.body());
         }
 
         return response;
     }
+
+    /**
+     * FastGPT 请求 —— 2025 稳定工业级版本
+     * 完整解决：
+     * - HTTP/1.1 header parser received no bytes
+     * - EOFException
+     * - 服务端断开连接
+     * - 并发下连接复用失败
+     */
+    private HttpResponse<String> sendFastGPTHttpRequest(
+            String requestBody, String FASTGPT_URL, String API_KEY
+    ) throws IOException, InterruptedException {
+
+        // 每次请求都新建 HttpClient（FastGPT 并发场景更稳定）
+        HttpClient client = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)  // ❗ 强制 HTTP/1.1 — 解决你当前的核心问题
+                .connectTimeout(Duration.ofSeconds(10))
+                .executor(Executors.newFixedThreadPool(8)) // 防止线程被打满导致阻塞
+                .build();
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(FASTGPT_URL))
+                .timeout(Duration.ofSeconds(60)) // 单请求超时
+                .header("Authorization", "Bearer " + API_KEY)
+                .header("Content-Type", "application/json")
+                .header("User-Agent", "Mozilla/5.0")
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody, StandardCharsets.UTF_8))
+                .build();
+
+        int retry = 0;
+        int maxRetry = 3;
+
+        while (true) {
+            try {
+
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+                log.info("FastGPT 状态码: {}", response.statusCode());
+
+                if (response.statusCode() == 200) {
+                    return response;
+                }
+
+                // 非 200 也可能是服务端未返回 body 的异常情况
+                log.warn("FastGPT 状态异常 [{}]: {}", response.statusCode(), response.body());
+                throw new IOException("FastGPT HTTP " + response.statusCode());
+
+            } catch (IOException | InterruptedException e) {
+
+                // 💥 关键：捕获你的典型错误
+                if (e.getMessage() != null &&
+                        e.getMessage().contains("header parser received no bytes")) {
+                    log.error("FastGPT 未返回 Header（服务端主动断开）重试中...");
+                }
+
+                retry++;
+                if (retry > maxRetry) {
+                    log.error("FastGPT 重试 {} 次后仍失败", maxRetry);
+                    throw e;
+                }
+
+                // 指数退避，避免压垮 FastGPT
+                Thread.sleep(300L * retry);
+            }
+        }
+    }
+
 
     /**
      * 解析 Gemini API 响应
@@ -567,6 +730,22 @@ public class GeminiConcurrentProcessor {
         if (parts.length() == 0) return "";
 
         return parts.getJSONObject(0).getString("text");
+    }
+
+    /**
+     * 解析 FastGPT API 响应
+     *
+     * @param response HTTP 响应对象
+     * @return 提取的文本内容
+     */
+    private String parseFastGPTResponse(HttpResponse<String> response) {
+        JSONObject respJson = new JSONObject(response.body());
+        JSONArray choices = respJson.getJSONArray("choices");
+        if (choices.length() == 0) return "";
+
+        // 获取第一个选择的消息内容
+        JSONObject message = choices.getJSONObject(0).getJSONObject("message");
+        return message.getString("content");
     }
 
     /**
