@@ -583,23 +583,20 @@ public class GeminiConcurrentProcessor {
     }
 
     /**
-     * 构建 FastGPT API 请求体
+     * 构建 FastGPT 请求体（chatId 使用随机 UID）
+     * FastGPT 要求严格格式：不能出现 user / customUid / variables / appId 等字段
      *
-     * @param text 要发送的完整文本（不包含提示词）
-     * @return JSON 格式的请求体字符串
-     */
-    /**
-     * 构建 FastGPT API 请求体 —— 终极防坑版（2025）
-     */
-    /**
-     * 2025 年实测最稳请求体 —— 严格遵循 FastGPT 官方 curl 示例
-     * 任何多一个字段、少一个字段、改一个字段名都会被你的 FastGPT 直接 EOF 杀死
+     * @param text 输入文本
+     * @return JSON 请求体字符串
      */
     private String buildFastGPTRequestBody(String text) {
-        // 必须严格保持这个格式！不能加 user、不能加 customUid、不能加 variables、不能加 appId
+        // 生成随机 chatId，避免会话污染或上下文串联
+        String chatId = UUID.randomUUID().toString();
+
+        // 返回严格格式 JSON
         return """
         {
-            "chatId": "novel-tts-forever",
+            "chatId": "%s",
             "stream": false,
             "detail": false,
             "messages": [
@@ -609,8 +606,9 @@ public class GeminiConcurrentProcessor {
                 }
             ]
         }
-        """.formatted(escapeJson(text));
+        """.formatted(chatId, escapeJson(text));
     }
+
 
     // 简单可靠的 JSON 字符串转义
     private String escapeJson(String raw) {
