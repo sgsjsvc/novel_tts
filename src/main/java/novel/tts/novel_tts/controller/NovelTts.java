@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 @RestController
 @RequestMapping("api/novels")
 @Slf4j
+@CrossOrigin(origins = "*")
 public class NovelTts {
 
     @Value("${folder.watch.outputFlowPath:temp/output/txt/}")

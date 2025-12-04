@@ -3,11 +3,9 @@ package novel.tts.novel_tts.service.ipml;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import novel.tts.novel_tts.common.Result;
 import novel.tts.novel_tts.mapper.GeminiCharacterMapper;
-import novel.tts.novel_tts.pojo.ModelRequest;
-import novel.tts.novel_tts.pojo.TtsCharacter;
-import novel.tts.novel_tts.pojo.Statistics;
+import novel.tts.novel_tts.mapper.PersonMapper;
+import novel.tts.novel_tts.pojo.*;
 import novel.tts.novel_tts.service.GeminiCharacterService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -27,6 +25,8 @@ public class GeminiCharacterServiceIpml implements GeminiCharacterService {
 
     @Autowired
     private GeminiCharacterMapper geminiCharacterMapper;
+    @Autowired
+    private PersonMapper personMapper;
 
     @Override
     public List<TtsCharacter> getCharacters(String search, String gender, String version) {
@@ -99,5 +99,19 @@ public class GeminiCharacterServiceIpml implements GeminiCharacterService {
             log.info("导入角色:{}", names);
             return geminiCharacterMapper.importCharacters(names,modelRequest.getVersion(), LocalDateTime.now());
 
+    }
+    @Override
+    public List<NovelTable> selectCharacters(String novelname) {
+       String tableName=personMapper.getTableName(novelname);
+       log.info("获取到的表名:{}", tableName);
+
+        return geminiCharacterMapper.selectModels(tableName);
+    }
+
+    @Override
+    public List<TableCharacter> selectAllCharacters(String novelname) {
+        String tableName=personMapper.getTableName(novelname);
+        log.info("获取到的表名:{}", tableName);
+        return geminiCharacterMapper.selectAllCharacters(tableName);
     }
 }

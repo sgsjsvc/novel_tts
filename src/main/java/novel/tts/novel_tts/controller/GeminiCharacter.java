@@ -3,10 +3,7 @@ package novel.tts.novel_tts.controller;
 import lombok.extern.slf4j.Slf4j;
 import novel.tts.novel_tts.common.Result;
 import novel.tts.novel_tts.mapper.GeminiCharacterMapper;
-import novel.tts.novel_tts.pojo.CharacterResponse;
-import novel.tts.novel_tts.pojo.ModelRequest;
-import novel.tts.novel_tts.pojo.TtsCharacter;
-import novel.tts.novel_tts.pojo.Statistics;
+import novel.tts.novel_tts.pojo.*;
 import novel.tts.novel_tts.service.GeminiCharacterService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -25,6 +22,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("gemini/characters")
 @Slf4j
+@CrossOrigin(origins = "*")
 
 public class GeminiCharacter {
 
@@ -85,6 +83,20 @@ public class GeminiCharacter {
             return Result.error("更新失败，未找到该角色");
         }
     }
+    @GetMapping("version/{novelname}")
+    public Result<List<NovelTable>> selectCharacters(@PathVariable String novelname) {
+        log.info("获取小说角色:{}", novelname);
+        List<NovelTable> characters = geminiCharacterService.selectCharacters(novelname);
+        log.info("返回角色:{}", characters);
+        return Result.success(characters);
+    }
 
+    @GetMapping("/{novelname}")
+    public Result<List<TableCharacter>> selectAllCharacters(@PathVariable String novelname) {
+        log.info("获取小说角色:{}", novelname);
+        List<TableCharacter> characters = geminiCharacterService.selectAllCharacters(novelname);
+        log.info("返回角色:{}", characters);
+        return Result.success(characters);
+    }
 
 }

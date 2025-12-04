@@ -26,4 +26,11 @@
                  
         </where>
     </select>
+    <select id="selectModels" resultType="novel.tts.novel_tts.pojo.NovelTable">
+        SELECT t1.modelname, t1.version FROM characters t1
+        LEFT JOIN ${tableName} t2 ON t1.modelname = t2.character_name
+        <where>
+            t2.character_name IS NULL
+        </where>
+    </select>
 </mapper>

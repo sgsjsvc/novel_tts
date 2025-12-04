@@ -2,6 +2,8 @@ package novel.tts.novel_tts.mapper;
 
 
 
+import novel.tts.novel_tts.pojo.NovelTable;
+import novel.tts.novel_tts.pojo.TableCharacter;
 import novel.tts.novel_tts.pojo.TtsCharacter;
 import org.apache.ibatis.annotations.*;
 
@@ -39,5 +41,13 @@ public interface GeminiCharacterMapper {
 
     @Update("UPDATE characters SET gender = #{gender} WHERE id = #{id}")
      int updateGenderById(@Param("id") Long id, @Param("gender") String gender);
+
+
+    List<NovelTable> selectModels(String tableName);
+
+
+
+    @Select("select * from `${novelname}`")
+    List<TableCharacter> selectAllCharacters(@Param("novelname") String novelname);
 
 }
